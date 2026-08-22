@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/coverage/
+.git/
+.github/
+docs/
+tests/
+*.user
+*.suo
+.env
+dev/jwt/*.pem
