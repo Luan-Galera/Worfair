@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- (e) Composition root do módulo Recruitment — docs/architecture/02 §3. -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Worfair.Modules.Recruitment.Application\Worfair.Modules.Recruitment.Application.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Recruitment.Contracts\Worfair.Modules.Recruitment.Contracts.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Recruitment.Domain\Worfair.Modules.Recruitment.Domain.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Recruitment.Infrastructure\Worfair.Modules.Recruitment.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

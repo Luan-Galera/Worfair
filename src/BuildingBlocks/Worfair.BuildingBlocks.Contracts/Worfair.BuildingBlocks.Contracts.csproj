@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Contratos compartilhados entre módulos (base dos *.Contracts de cada módulo). -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Worfair.BuildingBlocks.Application\Worfair.BuildingBlocks.Application.csproj" />
+  </ItemGroup>
+
+</Project>

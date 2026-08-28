@@ -1,0 +1,41 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/Worfair.Api/Worfair.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Worfair.BuildingBlocks.Contracts/Worfair.BuildingBlocks.Contracts.csproj" />
+    <Project Path="src/BuildingBlocks/Worfair.BuildingBlocks.Domain/Worfair.BuildingBlocks.Domain.csproj" />
+    <Project Path="src/BuildingBlocks/Worfair.BuildingBlocks.Infrastructure/Worfair.BuildingBlocks.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Worfair.Modules.Identity.Application/Worfair.Modules.Identity.Application.csproj" />
+    <Project Path="src/Modules/Identity/Worfair.Modules.Identity.Contracts/Worfair.Modules.Identity.Contracts.csproj" />
+    <Project Path="src/Modules/Identity/Worfair.Modules.Identity.Domain/Worfair.Modules.Identity.Domain.csproj" />
+    <Project Path="src/Modules/Identity/Worfair.Modules.Identity.Infrastructure/Worfair.Modules.Identity.Infrastructure.csproj" />
+    <Project Path="src/Modules/Identity/Worfair.Modules.Identity/Worfair.Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Tenants/">
+    <Project Path="src/Modules/Tenants/Worfair.Modules.Tenants.Application/Worfair.Modules.Tenants.Application.csproj" />
+    <Project Path="src/Modules/Tenants/Worfair.Modules.Tenants.Contracts/Worfair.Modules.Tenants.Contracts.csproj" />
+    <Project Path="src/Modules/Tenants/Worfair.Modules.Tenants.Domain/Worfair.Modules.Tenants.Domain.csproj" />
+    <Project Path="src/Modules/Tenants/Worfair.Modules.Tenants.Infrastructure/Worfair.Modules.Tenants.Infrastructure.csproj" />
+    <Project Path="src/Modules/Tenants/Worfair.Modules.Tenants/Worfair.Modules.Tenants.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Recruitment/">
+    <Project Path="src/Modules/Recruitment/Worfair.Modules.Recruitment.Application/Worfair.Modules.Recruitment.Application.csproj" />
+    <Project Path="src/Modules/Recruitment/Worfair.Modules.Recruitment.Contracts/Worfair.Modules.Recruitment.Contracts.csproj" />
+    <Project Path="src/Modules/Recruitment/Worfair.Modules.Recruitment.Domain/Worfair.Modules.Recruitment.Domain.csproj" />
+    <Project Path="src/Modules/Recruitment/Worfair.Modules.Recruitment.Infrastructure/Worfair.Modules.Recruitment.Infrastructure.csproj" />
+    <Project Path="src/Modules/Recruitment/Worfair.Modules.Recruitment/Worfair.Modules.Recruitment.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Worfair.Tests.Architecture/Worfair.Tests.Architecture.csproj" />
+  </Folder>
+  <Folder Name="/tests/Unit/">
+    <Project Path="tests/Unit/Worfair.Modules.Identity.Domain.UnitTests/Worfair.Modules.Identity.Domain.UnitTests.csproj" />
+    <Project Path="tests/Unit/Worfair.Modules.Recruitment.Domain.UnitTests/Worfair.Modules.Recruitment.Domain.UnitTests.csproj" />
+    <Project Path="tests/Unit/Worfair.Modules.Tenants.Domain.UnitTests/Worfair.Modules.Tenants.Domain.UnitTests.csproj" />
+  </Folder>
+</Solution>

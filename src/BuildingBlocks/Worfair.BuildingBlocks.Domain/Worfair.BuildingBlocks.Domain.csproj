@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Núcleo compartilhado: ZERO dependências externas (docs/architecture/01 §3). -->
+
+</Project>

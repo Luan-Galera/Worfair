@@ -1,0 +1,9 @@
+global using System.Data;
+global using System.Data.Common;
+global using System.Security;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Diagnostics;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;
+global using Worfair.BuildingBlocks.Infrastructure.Events;

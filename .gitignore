@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Chaves JWT locais (geradas por dev/jwt/generate.ps1)
+dev/jwt/*.pem
+
+# Segredos locais (.env.example é o template versionado)
+.env
+

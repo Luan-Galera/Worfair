@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Domínio puro: ZERO dependências externas (docs/architecture/01 §3). -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Worfair.BuildingBlocks.Domain\Worfair.BuildingBlocks.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

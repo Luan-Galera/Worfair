@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Worfair.BuildingBlocks.Infrastructure\Worfair.BuildingBlocks.Infrastructure.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Identity.Application\Worfair.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Identity.Contracts\Worfair.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\Tenants\Worfair.Modules.Tenants.Contracts\Worfair.Modules.Tenants.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

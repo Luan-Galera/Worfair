@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- (e) Composition root do módulo Tenants — docs/architecture/02 §3. -->
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Worfair.Modules.Tenants.Application\Worfair.Modules.Tenants.Application.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Tenants.Contracts\Worfair.Modules.Tenants.Contracts.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Tenants.Domain\Worfair.Modules.Tenants.Domain.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Tenants.Infrastructure\Worfair.Modules.Tenants.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

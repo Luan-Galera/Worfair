@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- (e) Composition root do módulo Identity. -->
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Worfair.Modules.Identity.Application\Worfair.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Identity.Contracts\Worfair.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Identity.Domain\Worfair.Modules.Identity.Domain.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Identity.Infrastructure\Worfair.Modules.Identity.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

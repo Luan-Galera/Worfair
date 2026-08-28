@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Worfair.BuildingBlocks.Infrastructure\Worfair.BuildingBlocks.Infrastructure.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Tenants.Application\Worfair.Modules.Tenants.Application.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Tenants.Contracts\Worfair.Modules.Tenants.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
