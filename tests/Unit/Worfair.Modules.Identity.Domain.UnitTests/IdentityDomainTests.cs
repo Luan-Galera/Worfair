@@ -38,12 +38,14 @@ public class EmailTests
 public class UserTests
 {
     private static User NewUser() =>
-        User.Register(Email.Create("ana@empresa.com").Value, "hash-argon2", "Ana Silva").Value;
+        User.Register(Email.Create("ana@empresa.com").Value, "hash-argon2", "Ana Silva",
+            document: "12345678909").Value;
 
     [Fact]
     public void Register_emite_evento_e_nasce_ativa()
     {
-        var result = User.Register(Email.Create("bruno@empresa.com").Value, "hash", "Bruno Lima");
+        var result = User.Register(Email.Create("bruno@empresa.com").Value, "hash", "Bruno Lima",
+            document: "12345678909");
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Status.Should().Be(UserStatus.Active);
@@ -53,10 +55,20 @@ public class UserTests
     [Fact]
     public void Register_sem_nome_falha()
     {
-        var result = User.Register(Email.Create("x@y.com").Value, "hash", "  ");
+        var result = User.Register(Email.Create("x@y.com").Value, "hash", "  ",
+            document: "12345678909");
 
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be(AuthErrors.FullNameRequired);
+    }
+
+    [Fact]
+    public void Register_sem_documento_falha()
+    {
+        var result = User.Register(Email.Create("doc@empresa.com").Value, "hash", "Sem Doc");
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(AuthErrors.DocumentInvalid);
     }
 
     [Fact]

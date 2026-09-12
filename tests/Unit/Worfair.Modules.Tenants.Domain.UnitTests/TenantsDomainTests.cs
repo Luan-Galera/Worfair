@@ -110,6 +110,17 @@ public class MembershipTests
         membership.Disable().IsFailure.Should().BeTrue();   // Disabled → Disabled proibido
         membership.Activate().IsSuccess.Should().BeTrue();  // Disabled → Active permitido
     }
+
+    [Fact]
+    public void Membership_pode_ser_criada_para_novo_tenant_em_bootstrap_global()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        var membership = TenantMembership.Add(Guid.NewGuid(), tenantId).Value;
+
+        membership.TenantId.Should().Be(tenantId);
+        membership.Status.Should().Be(MembershipStatus.Active);
+    }
 }
 
 public class TenantSettingsTests
