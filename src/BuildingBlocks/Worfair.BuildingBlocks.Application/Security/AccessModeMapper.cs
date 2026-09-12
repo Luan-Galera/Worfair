@@ -25,8 +25,7 @@ public static class AccessModeMapper
         var hasProvider = permissions.Any(p => ProviderPermissions.Any(p.StartsWith));
         return (hasContracting, hasProvider) switch
         {
-            (true, true) => throw new InvalidOperationException("Modos exclusivos: um contexto de token define um único modo."),
-            (true, false) => AccessMode.Contracting,
+            (true, _) => AccessMode.Contracting,
             (false, true) => AccessMode.Provider,
             _ => null
         };

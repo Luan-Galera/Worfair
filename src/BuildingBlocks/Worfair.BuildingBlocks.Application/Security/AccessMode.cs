@@ -8,5 +8,11 @@ public enum AccessMode
 {
     Global = 0,
     Contracting = 1,
-    Provider = 2
+    Provider = 2,
+
+    /// <summary>
+    /// Conta nova sem contexto (sem membership): token válido só para
+    /// onboarding (/me, /tenants/bootstrap). Nenhuma policy exige este modo.
+    /// </summary>
+    None = 3
 }

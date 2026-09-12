@@ -2,12 +2,13 @@ namespace Worfair.Api.Authorization;
 
 using Microsoft.AspNetCore.Authorization;
 using Worfair.BuildingBlocks.Application.Security;
+using Worfair.Modules.Identity.Application.Abstractions;
 
 /// <summary>
 /// Handlers resource-based: revalidam TUDO no banco a cada request (SEC-01 §4).
 /// Claims de roles/mode do token são apenas informativos — nunca decisivos.
 /// </summary>
-public sealed class AuthenticatedScopeHandler(IAuthorizationDataProvider dataProvider)
+public sealed class AuthenticatedScopeHandler(IAuthorizationDataProvider dataProvider, ILogger<AuthenticatedScopeHandler> logger)
     : AuthorizationHandler<AuthenticatedScopeRequirement>
 {
     protected override async Task HandleRequirementAsync(
@@ -15,6 +16,7 @@ public sealed class AuthenticatedScopeHandler(IAuthorizationDataProvider dataPro
         AuthenticatedScopeRequirement requirement)
     {
         var snapshot = await SnapshotResolver.ResolveAsync(dataProvider, context).ConfigureAwait(false);
+        logger.LogWarning("AuthScope: sub={Sub} snapshotNull={IsNull} userStatus={Status} tenantId={Tid}", context.User.FindFirst("sub")?.Value ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, snapshot is null, snapshot?.UserStatus, snapshot?.TenantId);
         if (snapshot is null)
         {
             context.Fail();
@@ -76,7 +78,8 @@ public sealed class PermissionHandler(IAuthorizationDataProvider dataProvider)
     protected override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
-        var sub = context.User.FindFirst("sub")?.Value;
+        var sub = context.User.FindFirst("sub")?.Value
+               ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(sub, out var userId))
             return;
 
@@ -101,17 +104,15 @@ public sealed class PermissionHandler(IAuthorizationDataProvider dataProvider)
                     break;
 
                 case AccessMode.Contracting:
-                case AccessMode.Provider:
-                    try
-                    {
-                        if (AccessModeMapper.Derive(snapshot.EffectivePermissions) != requiredMode)
-                            return;
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        return; // permissões exclusivas conflitantes — falha segura
-                    }
+                    if (!ModeResolver.HasContracting(snapshot.EffectivePermissions))
+                        return;
+                    if (snapshot.IsGlobalContext)
+                        return; // modo de tenant exige contexto de tenant
+                    break;
 
+                case AccessMode.Provider:
+                    if (!ModeResolver.HasProvider(snapshot.EffectivePermissions))
+                        return;
                     if (snapshot.IsGlobalContext)
                         return; // modo de tenant exige contexto de tenant
                     break;
@@ -127,7 +128,8 @@ internal static class SnapshotResolver
     public static async Task<AuthorizationSnapshot?> ResolveAsync(
         IAuthorizationDataProvider dataProvider, AuthorizationHandlerContext context)
     {
-        var sub = context.User.FindFirst("sub")?.Value;
+        var sub = context.User.FindFirst("sub")?.Value
+               ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(sub, out var userId))
             return null;
 

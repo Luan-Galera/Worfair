@@ -31,4 +31,11 @@ public interface ITenancyReadContract
     /// </summary>
     Task<IReadOnlyList<MembershipInfo>> ListActiveMembershipsAcrossTenantsAsync(
         Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A empresa existe e está ativa NO tenant informado (trava vaga×empresa —
+    /// leitura elevada no tenant alvo, revertida ao final).
+    /// </summary>
+    Task<bool> CompanyBelongsToTenantAsync(
+        TenantId tenantId, Guid companyId, CancellationToken cancellationToken = default);
 }

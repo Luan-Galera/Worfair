@@ -45,6 +45,12 @@ public static class CompanyErrors
 
     public static readonly Error InvalidStatusTransition =
         new("Company.InvalidStatusTransition", "Transição de status não permitida.");
+
+    public static readonly Error OwnerRequired =
+        new("Company.OwnerRequired", "A empresa exige um usuário responsável vinculado.");
+
+    public static readonly Error OwnerNotMember =
+        new("Company.OwnerNotMember", "O responsável precisa ser membro ativo do espaço.");
 }
 
 public static class MembershipErrors

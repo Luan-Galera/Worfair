@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Worfair.BuildingBlocks.Domain.ValueObjects;
 using Worfair.Modules.Tenants.Contracts;
+using Worfair.Modules.Tenants.Domain.Aggregates.Company;
 using Worfair.Modules.Tenants.Domain.Aggregates.Membership;
 using Worfair.Modules.Tenants.Domain.Aggregates.Tenant;
 using Worfair.Modules.Tenants.Infrastructure.Persistence;
@@ -65,6 +66,28 @@ public sealed class TenancyReadContract(TenancyDbContext db) : ITenancyReadContr
         }
 
         return result;
+    }
+
+    public async Task<bool> CompanyBelongsToTenantAsync(
+        TenantId tenantId, Guid companyId, CancellationToken cancellationToken = default)
+    {
+        await using var transaction =
+            await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        await db.Database.ExecuteSqlRawAsync(
+            "SELECT set_config('app.tenant_id', {0}, true)",
+            [tenantId.Value.ToString()],
+            cancellationToken).ConfigureAwait(false);
+
+        var exists = await db.Companies
+            .AsNoTracking()
+            .IgnoreQueryFilters() // filtro EF relaxado DE PROPÓSITO; o banco aplica RLS do tenant alvo
+            .AnyAsync(c => c.Id == new CompanyId(companyId)
+                && c.Status == CompanyStatus.Active, cancellationToken)
+            .ConfigureAwait(false);
+
+        await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+        return exists;
     }
 
     /// <summary>

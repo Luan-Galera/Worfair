@@ -32,7 +32,8 @@ public sealed class SessionIssuer(
     Worfair.Modules.Tenants.Contracts.ITenancyReadContract tenancy,
     ITokenService tokenService,
     IIdentityUnitOfWork unitOfWork,
-    IDateTimeProvider clock)
+    IDateTimeProvider clock,
+    IIdentityWriteScope writeScope)
 {
     /// <summary>Resolve roles/permissões/modo para o contexto alvo (SEC-01 §2 passos 3–4).</summary>
     public async Task<Result<ResolvedContext>> ResolveContextAsync(
@@ -52,7 +53,20 @@ public sealed class SessionIssuer(
 
         var modeResult = ModeResolver.DeriveContextMode(effective, roleCodes);
         if (modeResult.IsFailure)
+        {
+            // Conta nova sem contexto: sem memberships ativas, emite sessão
+            // "None" (só onboarding: /me, /tenants/bootstrap). Com memberships,
+            // contexto nulo continua inválido (fail-closed).
+            if (tenantId is null)
+            {
+                var memberships = await tenancy.ListActiveMembershipsAcrossTenantsAsync(
+                    userId, cancellationToken).ConfigureAwait(false);
+                if (memberships.Count == 0)
+                    return new ResolvedContext(null, roleCodes, effective, AccessMode.None);
+            }
+
             return Result.Failure<ResolvedContext>(modeResult.Error!);
+        }
 
         return new ResolvedContext(tenantId, roleCodes, effective, modeResult.Value);
     }
@@ -86,14 +100,20 @@ public sealed class SessionIssuer(
             user, context.TenantId, context.RoleCodes, context.Mode, cancellationToken).ConfigureAwait(false);
 
         var opaque = SessionTokens.GenerateOpaque();
-        var refreshToken = RefreshToken.Issue(
-            user.Id, context.TenantId, SessionTokens.Hash(opaque),
-            TimeSpan.FromDays(RefreshTokenLifetimeDays), clock.UtcNow);
 
-        await refreshTokens.AddAsync(refreshToken, cancellationToken).ConfigureAwait(false);
-        await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        // O refresh nasce no tenant ALVO (pode diferir do token vigente) — o
+        // escopo de escrita fixa o alvo para o RLS (ver IIdentityWriteScope).
+        return await writeScope.ExecuteAsync(context.TenantId, async () =>
+        {
+            var refreshToken = RefreshToken.Issue(
+                user.Id, context.TenantId, SessionTokens.Hash(opaque),
+                TimeSpan.FromDays(RefreshTokenLifetimeDays), clock.UtcNow);
 
-        return new AuthTokens(access, opaque, refreshToken.ExpiresAtUtc);
+            await refreshTokens.AddAsync(refreshToken, cancellationToken).ConfigureAwait(false);
+            await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return new AuthTokens(access, opaque, refreshToken.ExpiresAtUtc);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public const int RefreshTokenLifetimeDays = 7;
@@ -111,54 +131,62 @@ public sealed class SessionIssuer(
         if (stored is null)
             return Result.Failure<(User, ResolvedContext, AuthTokens)>(AuthErrors.RefreshTokenInvalid);
 
-        if (stored.WasRevoked)
+        // Daqui em diante tudo acontece no escopo do tenant DONO do refresh
+        // (revogação + substituto precisam passar no RLS de refresh_tokens).
+        return await writeScope.ExecuteAsync(stored.TenantId, async () =>
         {
-            // REUSO: família comprometida — derruba tudo (docs/security/01 §5).
-            var family = await refreshTokens
-                .ListActiveFamilyAsync(stored.UserId, stored.TenantId, cancellationToken)
+            if (stored.WasRevoked)
+            {
+                // REUSO: família comprometida — derruba tudo (docs/security/01 §5).
+                var family = await refreshTokens
+                    .ListActiveFamilyAsync(stored.UserId, stored.TenantId, cancellationToken)
+                    .ConfigureAwait(false);
+
+                foreach (var token in family)
+                    token.Revoke(clock.UtcNow);
+
+                await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                return Result.Failure<(User, ResolvedContext, AuthTokens)>(AuthErrors.RefreshTokenInvalid);
+            }
+
+            if (!stored.IsActive(clock.UtcNow))
+            {
+                stored.Revoke(clock.UtcNow);
+                await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                return Result.Failure<(User, ResolvedContext, AuthTokens)>(AuthErrors.RefreshTokenInvalid);
+            }
+
+            var user = await users.GetByIdAsync(stored.UserId, cancellationToken).ConfigureAwait(false);
+            if (user is null || user.EnsureCanAuthenticate().IsFailure)
+                return Result.Failure<(User, ResolvedContext, AuthTokens)>(AuthErrors.RefreshTokenInvalid);
+
+            var tenantId = stored.TenantId is { } tid ? (TenantId?)new TenantId(tid.Value) : null;
+
+            var contextResult = await ResolveContextAsync(user.Id, tenantId, cancellationToken).ConfigureAwait(false);
+            if (contextResult.IsFailure)
+                return Result.Failure<(User, ResolvedContext, AuthTokens)>(contextResult.Error!);
+
+            // Rotação: revoga o antigo apontando o substituto e emite o novo par.
+            var newOpaque = SessionTokens.GenerateOpaque();
+            var replacement = RefreshToken.Issue(
+                user.Id,
+                tenantId,
+                SessionTokens.Hash(newOpaque),
+                TimeSpan.FromDays(RefreshTokenLifetimeDays),
+                clock.UtcNow);
+
+            stored.Revoke(clock.UtcNow, replacement.TokenHash);
+            await refreshTokens.AddAsync(replacement, cancellationToken).ConfigureAwait(false);
+
+            var access = await tokenService.IssueAccessTokenAsync(
+                user, contextResult.Value.TenantId, contextResult.Value.RoleCodes, contextResult.Value.Mode, cancellationToken)
                 .ConfigureAwait(false);
 
-            foreach (var token in family)
-                token.Revoke(clock.UtcNow);
+            await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            return Result.Failure<(User, ResolvedContext, AuthTokens)>(AuthErrors.RefreshTokenInvalid);
-        }
-
-        if (!stored.IsActive(clock.UtcNow))
-        {
-            stored.Revoke(clock.UtcNow);
-            return Result.Failure<(User, ResolvedContext, AuthTokens)>(AuthErrors.RefreshTokenInvalid);
-        }
-
-        var user = await users.GetByIdAsync(stored.UserId, cancellationToken).ConfigureAwait(false);
-        if (user is null || user.EnsureCanAuthenticate().IsFailure)
-            return Result.Failure<(User, ResolvedContext, AuthTokens)>(AuthErrors.RefreshTokenInvalid);
-
-        var tenantId = stored.TenantId is { } tid ? (TenantId?)new TenantId(tid.Value) : null;
-
-        var contextResult = await ResolveContextAsync(user.Id, tenantId, cancellationToken).ConfigureAwait(false);
-        if (contextResult.IsFailure)
-            return Result.Failure<(User, ResolvedContext, AuthTokens)>(contextResult.Error!);
-
-        // Rotação: revoga o antigo apontando o substituto e emite o novo par.
-        var newOpaque = SessionTokens.GenerateOpaque();
-        var replacement = RefreshToken.Issue(
-            user.Id,
-            tenantId,
-            SessionTokens.Hash(newOpaque),
-            TimeSpan.FromDays(RefreshTokenLifetimeDays),
-            clock.UtcNow);
-
-        stored.Revoke(clock.UtcNow, replacement.TokenHash);
-        await refreshTokens.AddAsync(replacement, cancellationToken).ConfigureAwait(false);
-
-        var access = await tokenService.IssueAccessTokenAsync(
-            user, contextResult.Value.TenantId, contextResult.Value.RoleCodes, contextResult.Value.Mode, cancellationToken)
-            .ConfigureAwait(false);
-
-        await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-        return (user, contextResult.Value, new AuthTokens(access, newOpaque, replacement.ExpiresAtUtc));
+            return Result.Success<(User, ResolvedContext, AuthTokens)>(
+                (user, contextResult.Value, new AuthTokens(access, newOpaque, replacement.ExpiresAtUtc)));
+        }, cancellationToken).ConfigureAwait(false);
     }
 }
 

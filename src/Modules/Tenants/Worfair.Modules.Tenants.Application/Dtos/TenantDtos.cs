@@ -17,7 +17,8 @@ public sealed record CompanyDto(
     string Document,
     string? Email,
     string? Phone,
-    int Status);
+    int Status,
+    Guid? OwnerUserId = null);
 
 public sealed record MemberDto(
     Guid UserId,

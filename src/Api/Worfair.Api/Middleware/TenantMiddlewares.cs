@@ -26,11 +26,11 @@ public sealed class TenantHeaderGuardMiddleware(RequestDelegate next)
 /// Alimenta o ITenantProvider UMA vez por request, a partir do claim do JWT
 /// JÁ validado pelo JwtBearer (docs/architecture/04 §3.1).
 /// </summary>
-public sealed class TenantContextMiddleware(
-    RequestDelegate next,
-    Worfair.BuildingBlocks.Domain.Tenancy.ITenantProvider tenantProvider)
+public sealed class TenantContextMiddleware(RequestDelegate next)
 {
-    public async Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(
+        HttpContext context,
+        Worfair.BuildingBlocks.Domain.Tenancy.ITenantProvider tenantProvider)
     {
         var claim = context.User.FindFirst("tenant_id")?.Value;
         if (claim is not null && Guid.TryParse(claim, out var tenantId))

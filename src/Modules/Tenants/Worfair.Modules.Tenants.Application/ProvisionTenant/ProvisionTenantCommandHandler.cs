@@ -38,7 +38,7 @@ public sealed class ProvisionTenantCommandHandler(
 
         if (command.OwnerUserId is { } ownerUserId && ownerUserId != Guid.Empty)
         {
-            var membershipResult = TenantMembership.Add(ownerUserId);
+            var membershipResult = TenantMembership.Add(ownerUserId, tenant.Key);
             if (membershipResult.IsSuccess)
                 await memberships.AddAsync(membershipResult.Value, cancellationToken).ConfigureAwait(false);
         }

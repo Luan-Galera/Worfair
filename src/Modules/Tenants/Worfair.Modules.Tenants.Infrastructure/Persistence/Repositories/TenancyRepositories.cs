@@ -57,7 +57,7 @@ public sealed class CompanyRepository(TenancyDbContext db) : ICompanyRepository
 public sealed class TenantMembershipRepository(TenancyDbContext db) : ITenantMembershipRepository
 {
     public Task<TenantMembership?> FindAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken = default) =>
-        db.TenantMemberships.FirstOrDefaultAsync(m => m.UserId == userId, cancellationToken);
+        db.TenantMemberships.FirstOrDefaultAsync(m => m.TenantId == tenantId.Value && m.UserId == userId, cancellationToken);
 
     public async Task<IReadOnlyList<TenantMembership>> ListByTenantAsync(TenantId tenantId, CancellationToken cancellationToken = default) =>
         await db.TenantMemberships

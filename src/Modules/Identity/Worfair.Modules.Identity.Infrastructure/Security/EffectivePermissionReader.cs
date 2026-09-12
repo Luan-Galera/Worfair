@@ -35,14 +35,40 @@ public sealed class EffectivePermissionReader(IdentityDbContext db) : IEffective
         // Espelha o SQL de resolução dos docs (database/03 §4): contexto de
         // tenant lê apenas linhas do tenant; contexto global apenas tenant_id NULL.
         // O RLS do banco impõe o mesmo recorte (defesa final).
-        var query = db.UserRoles.Where(ur =>
-            ur.UserId == userId &&
-            (tenantId != null ? ur.TenantId == tenantId.Value : ur.TenantId == null));
+        //
+        // Leitura ELEVADA (R-04, mesmo padrão do TenancyReadContract): o RLS de
+        // user_roles filtra por app.tenant_id da SESSÃO, que nem sempre é o tenant
+        // alvo (login/refresh/switch partem de contexto nulo ou de outro tenant).
+        // Fixa o tenant alvo no escopo da TRANSAÇÃO e reverte ao final — leitura
+        // apenas, nunca escrita; sem isso, roles recém-criadas ficam invisíveis.
+        if (tenantId is not { } tid)
+        {
+            var query = db.UserRoles.Where(ur =>
+                ur.UserId == userId && ur.TenantId == null);
 
-        var result = await project(query)
+            return await project(query)
+                .Distinct()
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await using var transaction =
+            await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        await db.Database.ExecuteSqlRawAsync(
+            "SELECT set_config('app.tenant_id', {0}, true)",
+            [tid.Value.ToString()],
+            cancellationToken).ConfigureAwait(false);
+
+        var scoped = db.UserRoles.Where(ur =>
+            ur.UserId == userId && ur.TenantId == tid.Value);
+
+        var result = await project(scoped)
             .Distinct()
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+
+        await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
 
         return result;
     }

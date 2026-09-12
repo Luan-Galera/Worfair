@@ -16,9 +16,11 @@ using Worfair.Modules.Identity.Domain.Aggregates.User;
 /// </summary>
 public sealed class RsaJwtTokenService(
     IOptions<JwtOptions> options,
-    IDateTimeProvider clock) : ITokenService
+    IDateTimeProvider clock,
+    RsaSecurityKey signingKey) : ITokenService
 {
     private readonly JwtOptions _options = options.Value;
+    private readonly RsaSecurityKey _signingKey = signingKey;
 
     public Task<AccessToken> IssueAccessTokenAsync(
         User user,
@@ -27,8 +29,7 @@ public sealed class RsaJwtTokenService(
         AccessMode mode,
         CancellationToken cancellationToken = default)
     {
-        using var rsa = RsaKeyLoader.LoadPem(_options.PrivateKeyPath);
-        var key = new RsaSecurityKey(rsa) { KeyId = RsaKeyLoader.ComputeKeyId(rsa) };
+        var key = _signingKey;
 
         var issuedAt = clock.UtcNow;
         var expiresAt = issuedAt.AddMinutes(_options.AccessTokenMinutes);

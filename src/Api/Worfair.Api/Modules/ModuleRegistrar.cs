@@ -2,10 +2,12 @@ namespace Worfair.Api.Modules;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Worfair.Api.Authorization;
 using Worfair.BuildingBlocks.Application.Security;
 using Worfair.Modules.Identity;
+using Worfair.Modules.Jobs;
 using Worfair.Modules.Recruitment;
 using Worfair.Modules.Tenants;
 
@@ -18,6 +20,21 @@ public static class ModuleRegistrar
         services.AddTenants(configuration);
         services.AddIdentity(configuration);
         services.AddRecruitment(configuration);
+        services.AddJobs(configuration);
+
+        services.AddDbContext<Worfair.Api.Infrastructure.FinancialDbContext>((sp, options) =>
+        {
+            var tenantProvider = sp.GetRequiredService<Worfair.BuildingBlocks.Domain.Tenancy.ITenantProvider>();
+            options.UseNpgsql(configuration.GetConnectionString("Default"));
+            options.ReplaceService<Microsoft.EntityFrameworkCore.Infrastructure.IModelCacheKeyFactory,
+                Worfair.BuildingBlocks.Infrastructure.Persistence.Tenant.PerTenantModelCacheKeyFactory>();
+            options.AddInterceptors(
+                new Worfair.BuildingBlocks.Infrastructure.Persistence.Tenant.TenantSaveChangesInterceptor(tenantProvider),
+                new Worfair.BuildingBlocks.Infrastructure.Persistence.Audit.AuditableSaveChangesInterceptor(
+                    sp.GetRequiredService<Worfair.BuildingBlocks.Application.Ports.IDateTimeProvider>()),
+                new Worfair.BuildingBlocks.Infrastructure.Persistence.Tenant.TenantConnectionInterceptor(tenantProvider));
+        });
+        services.AddScoped<Worfair.Api.Infrastructure.FinancialUnitOfWork>();
 
         // Pipeline behaviors do CQRS — registro ÚNICO no host: cada módulo chama
         // AddMediatR separadamente e duplicaria a execução se registrado lá.
@@ -57,6 +74,7 @@ public static class ModuleRegistrar
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -64,10 +82,11 @@ public static class ModuleRegistrar
                     ValidateAudience = true,
                     ValidAudience = audience,
 
-                    // Resolução LAZY: suporta rotação por kid e evita leitura no startup.
+                    // Resolução LAZY: suporta rotação por kid. Sem `using` — RsaSecurityKey mantém referência ao RSA.
                     IssuerSigningKeyResolver = (_, _, kid, _) =>
                     {
-                        using var rsa = Worfair.Modules.Identity.Infrastructure.Security.RsaKeyLoader.LoadPem(publicKeyPath);
+                        var rsa = Worfair.Modules.Identity.Infrastructure.Security.RsaKeyLoader.LoadPem(
+                            ResolvePublicKeyPath(publicKeyPath));
                         var key = new RsaSecurityKey(rsa) { KeyId = Worfair.Modules.Identity.Infrastructure.Security.RsaKeyLoader.ComputeKeyId(rsa) };
                         return [key];
                     },
@@ -83,9 +102,41 @@ public static class ModuleRegistrar
         return services;
     }
 
+    /// <summary>
+    /// Resolve o PEM público como a emissão faz (IdentityModule): caminho direto,
+    /// CWD ou subida a partir do BaseDirectory — a API roda de CWDs distintos
+    /// (raiz do repo × pasta do projeto × container).
+    /// </summary>
+    private static string ResolvePublicKeyPath(string path)
+    {
+        if (System.IO.File.Exists(path))
+            return path;
+
+        var cwd = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), path);
+        if (System.IO.File.Exists(cwd))
+            return cwd;
+
+        var dir = new System.IO.DirectoryInfo(System.AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            var cand = System.IO.Path.Combine(dir.FullName, path);
+            if (System.IO.File.Exists(cand))
+                return cand;
+            dir = dir.Parent;
+        }
+
+        return path; // LoadPem lança erro claro com o caminho configurado
+    }
+
     /// <summary>Policies por permissão efetiva (docs/security/03 §4).</summary>
     public static IServiceCollection AddSecurityPolicies(this IServiceCollection services)
     {
+        // Registra os handlers de autorização resource-based (revalidam no banco a cada request)
+        services.AddScoped<IAuthorizationHandler, Worfair.Api.Authorization.AuthenticatedScopeHandler>();
+        services.AddScoped<IAuthorizationHandler, Worfair.Api.Authorization.TenantScopeHandler>();
+        services.AddScoped<IAuthorizationHandler, Worfair.Api.Authorization.GlobalScopeHandler>();
+        services.AddScoped<IAuthorizationHandler, Worfair.Api.Authorization.PermissionHandler>();
+
         services.AddAuthorization(options =>
         {
             options.AddPolicy(SecurityPolicies.PlatformManageTenants, p => p
@@ -166,6 +217,61 @@ public static class ModuleRegistrar
                 .AddRequirements(new AuthenticatedScopeRequirement())
                 .AddRequirements(new TenantScopeRequirement())
                 .AddRequirements(new PermissionRequirement("recruitment.interview.feedback", AccessMode.Contracting)));
+
+            options.AddPolicy(SecurityPolicies.ProposalSubmit, p => p
+                .RequireAuthenticatedUser()
+                .AddRequirements(new AuthenticatedScopeRequirement())
+                .AddRequirements(new TenantScopeRequirement())
+                .AddRequirements(new PermissionRequirement("proposals.submit", AccessMode.Provider)));
+
+            options.AddPolicy(SecurityPolicies.ProposalRead, p => p
+                .RequireAuthenticatedUser()
+                .AddRequirements(new AuthenticatedScopeRequirement())
+                .AddRequirements(new TenantScopeRequirement()));
+
+            options.AddPolicy(SecurityPolicies.ProposalDecide, p => p
+                .RequireAuthenticatedUser()
+                .AddRequirements(new AuthenticatedScopeRequirement())
+                .AddRequirements(new TenantScopeRequirement())
+                .AddRequirements(new PermissionRequirement("proposals.decide", AccessMode.Contracting)));
+
+            options.AddPolicy(SecurityPolicies.InvoiceIssue, p => p
+                .RequireAuthenticatedUser()
+                .AddRequirements(new AuthenticatedScopeRequirement())
+                .AddRequirements(new TenantScopeRequirement())
+                .AddRequirements(new PermissionRequirement("financial.invoice.issue", AccessMode.Contracting)));
+
+            options.AddPolicy(SecurityPolicies.NotificationRead, p => p
+                .RequireAuthenticatedUser()
+                .AddRequirements(new AuthenticatedScopeRequirement())
+                .AddRequirements(new TenantScopeRequirement()));
+
+            options.AddPolicy(SecurityPolicies.MarketplaceRead, p => p
+                .RequireAuthenticatedUser()
+                .AddRequirements(new AuthenticatedScopeRequirement())
+                .AddRequirements(new TenantScopeRequirement()));
+
+            options.AddPolicy(SecurityPolicies.JobApply, p => p
+                .RequireAuthenticatedUser()
+                .AddRequirements(new AuthenticatedScopeRequirement())
+                .AddRequirements(new TenantScopeRequirement())
+                .AddRequirements(new PermissionRequirement("jobs.project.apply", AccessMode.Provider)));
+
+            options.AddPolicy(SecurityPolicies.MessageRead, p => p
+                .RequireAuthenticatedUser().AddRequirements(new AuthenticatedScopeRequirement()).AddRequirements(new TenantScopeRequirement()));
+            options.AddPolicy(SecurityPolicies.MessageSend, p => p
+                .RequireAuthenticatedUser().AddRequirements(new AuthenticatedScopeRequirement()).AddRequirements(new TenantScopeRequirement()));
+            options.AddPolicy(SecurityPolicies.DisputeOpen, p => p
+                .RequireAuthenticatedUser().AddRequirements(new AuthenticatedScopeRequirement()).AddRequirements(new TenantScopeRequirement()));
+            options.AddPolicy(SecurityPolicies.DisputeMediate, p => p
+                .RequireAuthenticatedUser().AddRequirements(new AuthenticatedScopeRequirement()).AddRequirements(new TenantScopeRequirement()));
+            // Gestão de conflitos: só autenticado aqui; o handler confere
+            // SUPER_ADMIN no banco (global não tem tenant p/ TenantScope).
+            options.AddPolicy(SecurityPolicies.DisputeAdmin, p => p
+                .RequireAuthenticatedUser().AddRequirements(new AuthenticatedScopeRequirement()));
+            // Leitura de suporte: idem — o endpoint decide (parte ou super admin).
+            options.AddPolicy(SecurityPolicies.SupportRead, p => p
+                .RequireAuthenticatedUser().AddRequirements(new AuthenticatedScopeRequirement()));
         });
 
         return services;

@@ -26,7 +26,7 @@ public sealed class Company : TenantEntity<CompanyId>, IAuditableEntity
 
     private Company(
         CompanyId id, TenantId tenantId, string legalName, string? tradeName,
-        Document document, string? email, string? phone, DateTime utcNow)
+        Document document, string? email, string? phone, DateTime utcNow, Guid? ownerUserId = null)
     {
         Id = id;
         TenantId = tenantId;
@@ -38,11 +38,18 @@ public sealed class Company : TenantEntity<CompanyId>, IAuditableEntity
         Status = CompanyStatus.Active;
         CreatedAtUtc = utcNow;
         UpdatedAtUtc = utcNow;
+        OwnerUserId = ownerUserId;
     }
 
     public string LegalName { get; private set; } = default!;
 
     public string? TradeName { get; private set; }
+
+    /// <summary>
+    /// Vínculo conta-empresa × conta-usuário: o dono responsável pela empresa.
+    /// Definido na criação (criador) e transferível pela gestão do tenant.
+    /// </summary>
+    public Guid? OwnerUserId { get; private set; }
 
     public Document Document { get; private set; } = default!;
 
@@ -59,7 +66,7 @@ public sealed class Company : TenantEntity<CompanyId>, IAuditableEntity
     /// <summary>O tenant é informado pelo interceptor em SaveChanges (nunca pelo input).</summary>
     public static Result<Company> Create(
         string? legalName, string? tradeName, Document document,
-        string? email = null, string? phone = null, DateTime? utcNow = null)
+        string? email = null, string? phone = null, DateTime? utcNow = null, Guid? ownerUserId = null)
     {
         var now = utcNow ?? DateTime.UtcNow;
 
@@ -82,7 +89,19 @@ public sealed class Company : TenantEntity<CompanyId>, IAuditableEntity
             document,
             string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
             string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
-            now);
+            now,
+            ownerUserId == Guid.Empty ? null : ownerUserId);
+    }
+
+    /// <summary>Transfere o vínculo dono×empresa para outro usuário do tenant.</summary>
+    public Result TransferOwner(Guid newOwnerUserId)
+    {
+        if (newOwnerUserId == Guid.Empty)
+            return Result.Failure(CompanyErrors.OwnerRequired);
+
+        OwnerUserId = newOwnerUserId;
+        UpdatedAtUtc = DateTime.UtcNow;
+        return Result.Success();
     }
 
     public Result Deactivate()

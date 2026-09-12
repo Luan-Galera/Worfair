@@ -52,11 +52,34 @@ public sealed class ListCompaniesQueryHandler(
             c.Document.Value,
             c.Email,
             c.Phone,
-            (int)c.Status)).ToList());
+            (int)c.Status,
+            c.OwnerUserId)).ToList());
     }
 }
 
 public sealed record ListTenantMembersQuery : IQuery<Result<IReadOnlyList<MemberDto>>>;
+
+public sealed record ListTenantsQuery : IQuery<Result<IReadOnlyList<TenantDto>>>;
+
+public sealed class ListTenantsQueryHandler(ITenantRepository tenants)
+    : IQueryHandler<ListTenantsQuery, Result<IReadOnlyList<TenantDto>>>
+{
+    public async Task<Result<IReadOnlyList<TenantDto>>> Handle(
+        ListTenantsQuery query, CancellationToken cancellationToken)
+    {
+        var list = await tenants.ListAllActiveAsync(cancellationToken).ConfigureAwait(false);
+
+        return Result.Success<IReadOnlyList<TenantDto>>(list.Select(t => new TenantDto(
+            t.Id,
+            t.Name,
+            t.Slug,
+            (int)t.Tier,
+            (int)t.Status,
+            t.Timezone,
+            t.Locale,
+            t.CreatedAtUtc)).ToList());
+    }
+}
 
 public sealed class ListTenantMembersQueryHandler(
     ITenantMembershipRepository memberships,

@@ -11,6 +11,7 @@ public static class ModeResolver
     public const string ContractingMode = "contracting";
     public const string ProviderMode = "provider";
     public const string GlobalMode = "global";
+    public const string NoneMode = "none";
 
     public static bool HasContracting(IEnumerable<string> permissions) =>
         permissions.Any(p => AccessModeMapper.ContractingPermissions.Any(p.StartsWith));
@@ -31,9 +32,8 @@ public static class ModeResolver
 
         return (contracting, provider) switch
         {
-            // Permissões exclusivas por desenho (docs/security/03 §3); conflito = seed errado.
-            (true, true) => Result.Failure<AccessMode>(AuthErrors.ModeConflict),
-            (true, false) => Result.Success(AccessMode.Contracting),
+            // Um contexto pode exercer as duas capacidades; o modo é apenas o padrão da sessão.
+            (true, _) => Result.Success(AccessMode.Contracting),
             (false, true) => Result.Success(AccessMode.Provider),
             _ => global
                 ? Result.Success(AccessMode.Global)
@@ -45,6 +45,7 @@ public static class ModeResolver
     {
         AccessMode.Contracting => ContractingMode,
         AccessMode.Provider => ProviderMode,
+        AccessMode.None => NoneMode,
         _ => GlobalMode
     };
 
@@ -55,6 +56,7 @@ public static class ModeResolver
             case ContractingMode: mode = AccessMode.Contracting; return true;
             case ProviderMode: mode = AccessMode.Provider; return true;
             case GlobalMode: mode = AccessMode.Global; return true;
+            case NoneMode: mode = AccessMode.None; return true;
             default: mode = AccessMode.Global; return false;
         }
     }

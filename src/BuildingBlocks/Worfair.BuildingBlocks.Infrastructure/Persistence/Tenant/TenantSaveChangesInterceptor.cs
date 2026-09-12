@@ -38,10 +38,17 @@ public sealed class TenantSaveChangesInterceptor(ITenantProvider tenantProvider)
             switch (entry.State)
             {
                 case EntityState.Added:
-                    if (tenantId is null)
+                    if (tenantId is not null)
+                    {
+                        if (entry.Entity.TenantId == default || entry.Entity.TenantId != tenantId.Value)
+                            entry.Entity.SetTenantId(tenantId.Value);
+                        break;
+                    }
+
+                    // Bootstrap global: uma operação de provisionamento pode criar entidades do
+                    // novo tenant explicitamente sem estar em contexto de tenant vigente.
+                    if (entry.Entity.TenantId == default)
                         throw new TenantRequiredException("Entidade tenant-owned exige um tenant ativo no contexto.");
-                    if (entry.Entity.TenantId == default || entry.Entity.TenantId != tenantId.Value)
-                        entry.Entity.SetTenantId(tenantId.Value);
                     break;
 
                 case EntityState.Modified:

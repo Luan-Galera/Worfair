@@ -55,8 +55,48 @@ public static class IdentityModule
         services.AddScoped<IUserRoleRepository, UserRoleRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
+        services.AddScoped<Worfair.Modules.Identity.Application.Abstractions.IIdentityWriteScope,
+            Worfair.Modules.Identity.Infrastructure.Persistence.IdentityWriteScope>();
 
-        // Segurança
+        // Segurança — RS256 singleton (private fica em memória, não relida/disposta por request)
+        // Private nunca commitada: dev usa dev/jwt/*.pem (.gitignore); prod usa env-var JWT__PrivateKeyPem ou secret mount
+        services.AddSingleton<Microsoft.IdentityModel.Tokens.RsaSecurityKey>(sp =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<JwtOptions>>().Value;
+            var config = sp.GetRequiredService<IConfiguration>();
+            var inlinePem = config["JWT__PrivateKeyPem"] ?? config["Jwt:PrivateKeyPemInline"];
+            System.Security.Cryptography.RSA rsa;
+            if (!string.IsNullOrWhiteSpace(inlinePem))
+            {
+                rsa = System.Security.Cryptography.RSA.Create();
+                rsa.ImportFromPem(inlinePem);
+            }
+            else
+            {
+                var path = opts.PrivateKeyPath;
+                string resolved = path;
+                if (!System.IO.File.Exists(path))
+                {
+                    var cwd = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), path);
+                    if (System.IO.File.Exists(cwd)) resolved = cwd;
+                    else
+                    {
+                        var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+                        while (dir != null)
+                        {
+                            var cand = System.IO.Path.Combine(dir.FullName, path);
+                            if (System.IO.File.Exists(cand)) { resolved = cand; break; }
+                            dir = dir.Parent;
+                        }
+                    }
+                }
+                rsa = RsaKeyLoader.LoadPem(resolved);
+            }
+            return new Microsoft.IdentityModel.Tokens.RsaSecurityKey(rsa)
+            {
+                KeyId = RsaKeyLoader.ComputeKeyId(rsa)
+            };
+        });
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ITokenService, RsaJwtTokenService>();
         services.AddScoped<IEffectivePermissionReader, EffectivePermissionReader>();

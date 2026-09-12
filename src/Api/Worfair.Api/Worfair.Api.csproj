@@ -17,11 +17,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.0.36" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Identity\Worfair.Modules.Identity\Worfair.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Jobs\Worfair.Modules.Jobs\Worfair.Modules.Jobs.csproj" />
     <ProjectReference Include="..\..\Modules\Recruitment\Worfair.Modules.Recruitment\Worfair.Modules.Recruitment.csproj" />
     <ProjectReference Include="..\..\Modules\Tenants\Worfair.Modules.Tenants\Worfair.Modules.Tenants.csproj" />
   </ItemGroup>

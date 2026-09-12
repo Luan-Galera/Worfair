@@ -39,6 +39,18 @@ public static class MigrationExtensions
         await recruitmentDb.Database.MigrateAsync().ConfigureAwait(false);
         logger.LogInformation("Migrações aplicadas: recruitment");
 
+        // 4) jobs (job_postings/service_projects + outbox_messages)
+        var jobsDb = scope.ServiceProvider.GetRequiredService<
+            Worfair.Modules.Jobs.Infrastructure.Persistence.JobsDbContext>();
+        await jobsDb.Database.MigrateAsync().ConfigureAwait(false);
+        logger.LogInformation("Migrações aplicadas: jobs");
+
+        var financialDb = scope.ServiceProvider.GetRequiredService<Worfair.Api.Infrastructure.FinancialDbContext>();
+        await financialDb.Database.MigrateAsync().ConfigureAwait(false);
+        logger.LogInformation("Migrações aplicadas: financial");
+
+        await app.SeedInitialAdminAsync(scope).ConfigureAwait(false);
+
         if (migrateOnly)
         {
             logger.LogInformation("DB_MIGRATE_ONLY=true — encerrando após migrações.");

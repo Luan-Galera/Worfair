@@ -33,12 +33,16 @@ public sealed class TenantMembership : ITenantEntity
     public DateTime JoinedAtUtc { get; private set; }
 
     public static Result<TenantMembership> Add(
-        Guid userId, DateTime? utcNow = null)
+        Guid userId, TenantId? tenantId = null, DateTime? utcNow = null)
     {
         if (userId == Guid.Empty)
             return Result.Failure<TenantMembership>(TenantErrors.NotFound);
 
-        return new TenantMembership(TenantId.Empty, userId, MembershipStatus.Active, utcNow ?? DateTime.UtcNow);
+        return new TenantMembership(
+            tenantId ?? TenantId.Empty,
+            userId,
+            MembershipStatus.Active,
+            utcNow ?? DateTime.UtcNow);
     }
 
     /// <summary>Convida o usuário: entra como Invited e precisa ser ativado.</summary>

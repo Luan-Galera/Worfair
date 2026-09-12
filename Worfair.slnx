@@ -4,6 +4,7 @@
     <Project Path="src/Api/Worfair.Api/Worfair.Api.csproj" />
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Worfair.BuildingBlocks.Application/Worfair.BuildingBlocks.Application.csproj" />
     <Project Path="src/BuildingBlocks/Worfair.BuildingBlocks.Contracts/Worfair.BuildingBlocks.Contracts.csproj" />
     <Project Path="src/BuildingBlocks/Worfair.BuildingBlocks.Domain/Worfair.BuildingBlocks.Domain.csproj" />
     <Project Path="src/BuildingBlocks/Worfair.BuildingBlocks.Infrastructure/Worfair.BuildingBlocks.Infrastructure.csproj" />
@@ -22,6 +23,11 @@
     <Project Path="src/Modules/Tenants/Worfair.Modules.Tenants.Domain/Worfair.Modules.Tenants.Domain.csproj" />
     <Project Path="src/Modules/Tenants/Worfair.Modules.Tenants.Infrastructure/Worfair.Modules.Tenants.Infrastructure.csproj" />
     <Project Path="src/Modules/Tenants/Worfair.Modules.Tenants/Worfair.Modules.Tenants.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Jobs/">
+    <Project Path="src/Modules/Jobs/Worfair.Modules.Jobs.Application/Worfair.Modules.Jobs.Application.csproj" />
+    <Project Path="src/Modules/Jobs/Worfair.Modules.Jobs.Contracts/Worfair.Modules.Jobs.Contracts.csproj" />
+    <Project Path="src/Modules/Jobs/Worfair.Modules.Jobs.Domain/Worfair.Modules.Jobs.Domain.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Recruitment/">
     <Project Path="src/Modules/Recruitment/Worfair.Modules.Recruitment.Application/Worfair.Modules.Recruitment.Application.csproj" />

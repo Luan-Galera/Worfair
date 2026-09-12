@@ -102,6 +102,8 @@ public sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
             .HasColumnName("phone")
             .HasMaxLength(Company.PhoneMaxLength);
 
+        builder.Property(c => c.OwnerUserId).HasColumnName("owner_user_id");
+
         builder.Property(c => c.Status)
             .HasColumnName("status")
             .HasConversion<int>()

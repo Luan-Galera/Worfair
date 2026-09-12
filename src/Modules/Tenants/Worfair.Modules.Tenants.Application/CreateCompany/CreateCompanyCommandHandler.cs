@@ -2,6 +2,7 @@ namespace Worfair.Modules.Tenants.Application.CreateCompany;
 
 using Worfair.BuildingBlocks.Application.Cqrs;
 using Worfair.BuildingBlocks.Domain.Errors;
+using Worfair.BuildingBlocks.Application.Security;
 using Worfair.BuildingBlocks.Domain.Tenancy;
 using Worfair.BuildingBlocks.Domain.ValueObjects;
 using Worfair.Modules.Tenants.Application.Abstractions;
@@ -14,7 +15,8 @@ using Worfair.Modules.Tenants.Domain.ValueObjects;
 public sealed class CreateCompanyCommandHandler(
     ICompanyRepository companies,
     ITenancyUnitOfWork unitOfWork,
-    ITenantProvider tenantProvider)
+    ITenantProvider tenantProvider,
+    ICurrentUser currentUser)
     : ICommandHandler<CreateCompanyCommand, Result<CompanyDto>>
 {
     public async Task<Result<CompanyDto>> Handle(CreateCompanyCommand command, CancellationToken cancellationToken)
@@ -29,8 +31,10 @@ public sealed class CreateCompanyCommandHandler(
         if (await companies.DocumentExistsAsync(documentResult.Value, cancellationToken).ConfigureAwait(false))
             return Result.Failure<CompanyDto>(CompanyErrors.DocumentDuplicated);
 
+        // Vínculo automático conta-empresa × conta-usuário: quem cria é o dono.
         var createResult = Company.Create(
-            command.LegalName, command.TradeName, documentResult.Value, command.Email, command.Phone);
+            command.LegalName, command.TradeName, documentResult.Value, command.Email, command.Phone,
+            utcNow: null, ownerUserId: currentUser.UserId);
         if (createResult.IsFailure)
             return Result.Failure<CompanyDto>(createResult.Error!);
 
@@ -46,6 +50,7 @@ public sealed class CreateCompanyCommandHandler(
             company.Document.Value,
             company.Email,
             company.Phone,
-            (int)company.Status);
+            (int)company.Status,
+            company.OwnerUserId);
     }
 }

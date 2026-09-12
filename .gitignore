@@ -364,6 +364,13 @@ FodyWeavers.xsd
 # Chaves JWT locais (geradas por dev/jwt/generate.ps1)
 dev/jwt/*.pem
 
-# Segredos locais (.env.example é o template versionado)
+# Segredos locais (.env.example é o único template versionado)
 .env
+.env.*
+!.env.example
 
+AGENTS.md
+
+api-run.err
+
+api-run.log

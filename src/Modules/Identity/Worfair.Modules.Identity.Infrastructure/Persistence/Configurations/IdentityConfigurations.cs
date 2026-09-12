@@ -39,6 +39,19 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasConversion<int>()
             .IsRequired();
 
+        builder.Property(u => u.UserType)
+            .HasColumnName("user_type")
+            .HasConversion<int>()
+            .IsRequired();
+
+        builder.Property(u => u.Document)
+            .HasColumnName("document")
+            .HasMaxLength(14);
+
+        builder.Property(u => u.Phone)
+            .HasColumnName("phone")
+            .HasMaxLength(User.PhoneMaxLength);
+
         builder.Property(u => u.EmailVerifiedAtUtc).HasColumnName("email_verified_at");
         builder.Property(u => u.LastLoginAtUtc).HasColumnName("last_login_at");
         builder.Property(u => u.CreatedAtUtc).HasColumnName("created_at");
