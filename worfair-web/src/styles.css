@@ -1,0 +1,92 @@
+:root {
+  --wf-primary: #1d4ed8;
+  --wf-accent: #059669;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  background: #f3f5f9;
+  color: #1f2937;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell .container {
+  flex: 1;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--wf-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero {
+  background: linear-gradient(135deg, #dbeafe 0%, #ecfdf5 100%);
+}
+
+.fee-banner {
+  background: #fffbeb;
+  border-bottom: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  text-align: center;
+}
+
+.fee-banner-link {
+  color: #92400e;
+  font-weight: 700;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.navbar-brand {
+  letter-spacing: -0.02em;
+}
+
+.list-group-item.active {
+  background: var(--wf-primary);
+  border-color: var(--wf-primary);
+}
+
+.thread {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.card {
+  border-radius: 0.75rem;
+}
+
+.btn {
+  border-radius: 0.6rem;
+}
+
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.btn:hover, .nav-link:hover, .list-group-item:hover {
+  text-decoration: none;
+}
