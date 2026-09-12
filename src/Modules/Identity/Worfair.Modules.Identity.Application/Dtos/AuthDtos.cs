@@ -24,4 +24,9 @@ public sealed record MeDto(
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> EffectivePermissions,
     IReadOnlyList<string> AvailableModes,
-    IReadOnlyList<MembershipDto> Memberships);
+    IReadOnlyList<MembershipDto> Memberships,
+    int UserType,
+    string? Document,
+    string? Phone,
+    string? AvatarUrl,
+    string? PortfolioUrl);

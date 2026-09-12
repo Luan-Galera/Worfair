@@ -72,6 +72,11 @@ public sealed class GetMeQueryHandler(
             available,
             (await tenancy.ListActiveMembershipsAcrossTenantsAsync(userId, cancellationToken).ConfigureAwait(false))
                 .Select(m => new MembershipDto(m.TenantIdValue, m.TenantName, m.Status, m.JoinedAtUtc))
-                .ToList());
+                .ToList(),
+            (int)user.UserType,
+            user.Document,
+            user.Phone,
+            user.AvatarUrl,
+            user.PortfolioUrl);
     }
 }

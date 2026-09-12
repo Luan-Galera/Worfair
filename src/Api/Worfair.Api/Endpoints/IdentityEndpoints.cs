@@ -1,17 +1,17 @@
 namespace Worfair.Api.Endpoints;
 
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Worfair.Api.Extensions;
-using Worfair.Modules.Identity.Application.Dtos;
 using Worfair.Modules.Identity.Application.GetMe;
 using Worfair.Modules.Identity.Application.Login;
 using Worfair.Modules.Identity.Application.Logout;
 using Worfair.Modules.Identity.Application.ManageRoles;
 using Worfair.Modules.Identity.Application.RefreshToken;
 using Worfair.Modules.Identity.Application.RegisterUser;
-using Worfair.Modules.Identity.Application.SwitchMode;
 using Worfair.Modules.Identity.Application.SwitchTenant;
+using Worfair.Modules.Identity.Application.LockUser;
 
 public static class IdentityEndpoints
 {
@@ -21,19 +21,24 @@ public static class IdentityEndpoints
 
         // Público
         group.MapPost("/register", async (RegisterUserCommand command, ISender sender, CancellationToken ct) =>
-            (await sender.Send(command, ct).ConfigureAwait(false)).Created("GetUserById", id => new { id }))
+        {
+            var result = await sender.Send(command, ct).ConfigureAwait(false);
+            return result.IsFailure
+                ? result.ToHttpResult()
+                : Results.Created($"/api/identity/{result.Value}", result.Value);
+        })
             .WithName("RegisterUser")
-            .WithSummary("Auto-cadastro público. Primeiro usuário recebe SUPER_ADMIN.");
+            .WithSummary("Auto-cadastro público. Usuário criado sem papel; onboarding necessário.");
 
         group.MapPost("/login", async (LoginCommand command, ISender sender, CancellationToken ct) =>
             (await sender.Send(command, ct).ConfigureAwait(false)).ToHttpResult())
             .WithName("Login")
-            .WithSummary("Emite access token RS256 (15min) + refresh rotativo (7d). TargetTenantId opcional e VALIDADO no servidor.");
+            .WithSummary("Emite token RS256 (15min) + refresh (7d). TargetTenantId validado no servidor.");
 
         group.MapPost("/refresh", async (RefreshAccessTokenCommand command, ISender sender, CancellationToken ct) =>
             (await sender.Send(command, ct).ConfigureAwait(false)).ToHttpResult())
             .WithName("RefreshTokens")
-            .WithSummary("Rotação com uso único; reuso revoga a família inteira.");
+            .WithSummary("Rotação única; reuso invalida a token family.");
 
         group.MapPost("/logout", async (LogoutCommand command, ISender sender, CancellationToken ct) =>
             (await sender.Send(command, ct).ConfigureAwait(false)).ToAcceptedResult())
@@ -45,19 +50,13 @@ public static class IdentityEndpoints
                 (await sender.Send(new GetMeQuery(), ct).ConfigureAwait(false)).ToHttpResult())
             .WithName("GetMe")
             .RequireAuthorization()
-            .WithSummary("Espelho do contexto: roles/permissões efetivas/modos disponíveis lidos do BANCO.");
+            .WithSummary("Contexto: roles, permissões e modos lidos do banco.");
 
         group.MapPost("/switch-tenant", async (SwitchTenantCommand command, ISender sender, CancellationToken ct) =>
             (await sender.Send(command, ct).ConfigureAwait(false)).ToHttpResult())
             .WithName("SwitchTenant")
             .RequireAuthorization()
-            .WithSummary("ÚNICA via de troca de tenant — valida membership ativa e emite novo token.");
-
-        group.MapPost("/switch-mode", async (SwitchModeCommand command, ISender sender, CancellationToken ct) =>
-            (await sender.Send(command, ct).ConfigureAwait(false)).ToHttpResult())
-            .WithName("SwitchMode")
-            .RequireAuthorization()
-            .WithSummary("Alternância contracting/provider/global — reemite token se o modo estiver disponível.");
+            .WithSummary("Troca de contexto valida membership e deriva modo automaticamente.");
 
         // Gestão de roles de tenant (tenants.members.manage + modo Contratante)
         var usersGroup = group.MapGroup("/users/{targetUserId:guid}/roles")
@@ -74,6 +73,22 @@ public static class IdentityEndpoints
                     (await sender.Send(new RemoveTenantRoleCommand(targetUserId, roleCode), ct)
                         .ConfigureAwait(false)).ToAcceptedResult())
             .WithName("RemoveTenantRole");
+
+        // Gestão de bloqueio/desbloqueio (apenas SUPER_ADMIN global)
+        var adminGroup = group.MapGroup("/users/{targetUserId:guid}/lock")
+            .RequireAuthorization(Worfair.Api.Authorization.SecurityPolicies.DisputeAdmin);
+
+        adminGroup.MapPost("",
+                async (Guid targetUserId, LockUserCommand command, ISender sender, CancellationToken ct) =>
+                    (await sender.Send(new LockUserCommand(targetUserId), ct)
+                        .ConfigureAwait(false)).ToAcceptedResult())
+            .WithName("LockUser");
+
+        adminGroup.MapPost("/unlock",
+                async (Guid targetUserId, UnlockUserCommand command, ISender sender, CancellationToken ct) =>
+                    (await sender.Send(new UnlockUserCommand(targetUserId), ct)
+                        .ConfigureAwait(false)).ToAcceptedResult())
+            .WithName("UnlockUser");
 
         return app;
     }

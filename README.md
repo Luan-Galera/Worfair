@@ -1,208 +1,154 @@
-# Worfair — Backend (Monolito Modular)
+# Worfair — Marketplace de Trabalhos e Vagas
 
-Backend da plataforma Worfair (ATS + Contratação + Marketplace de serviços),
-implementando o planejamento de `docs/architecture`, `docs/database`,
-`docs/security` e `docs/devops`.
-
-> **Status:** Partes 1 e 2 concluídas e compilando — BuildingBlocks + módulos
-> **Identity**, **Tenants** e **Recruitment** funcionais (end-to-end), migrations
-> com **RLS FORCE** validadas no PostgreSQL, 83 testes de domínio e arquitetura.
-> Próximas partes: Jobs, Proposals, Financial (Asaas) e Notifications (ver Roadmap).
+Backend e frontend para plataforma multi-tenant de contratação e prestação de serviços.
+Funcionalidades completas de cadastro, publicação, propostas, faturas e pagamentos com taxa 15%.
 
 ---
 
-## Stack
+## Funcionamento
 
-| Camada | Tecnologia |
-| ------ | ---------- |
-| Runtime | .NET **10** / C# (nullable, analyzers) |
-| Persistência | EF Core 10 + **Npgsql** (PostgreSQL 16) |
-| CQRS | MediatR 12 (+ behaviors de validação/logging) |
-| Validação | FluentValidation |
-| Autenticação | JWT **RS256** (access 15min + refresh rotativo 7d) |
-| Hash de senha | BCrypt (work factor 12) |
-| Docs interativas | OpenAPI nativo + **Scalar** (`/scalar`) |
-| Testes | xUnit + FluentAssertions + **NetArchTest** |
+### Principais fluxos
 
-## Estrutura
+- **Registro e login**: Primeiro usuário vira SUPER_ADMIN global. Login via JWT RS256 (token 15min + refresh 7d).
+- **Contexto de tenant**: Cada operação está vinculada a um tenant (espaço/workspace). Isolamento via RLS (Row Level Security) no PostgreSQL.
+- **Modo automático**: Constratante ou prestador é derivado automaticamente das permissões do usuário no tenant corrente. Não há toggle manual.
+- **Taxa 15%**: Sobre todo trabalho/cobrança. Contratante paga valor + 15%; prestador recebe valor integral.
+- **Publicação**: Contratantes publicam vagas (empregos) ou trabalhos (freela). Prestadores enviam propostas.
+- **Faturas e pagamentos**: Geração de invoices com taxa 15%, visualização de saldo (a receber/a pagar/recebido/pago), e marcação de pagamento.
+- **Mensagens e disputas**: Conversas vinculadas a faturas. Em caso de conflito, sistema encaminha ao SUPER_ADMIN para mediação.
+- **Alternância de tenant**: Via `POST /api/identity/switch-tenant`. Renova token e contexto automaticamente.
 
-```
-src/
-├── BuildingBlocks/
-│   ├── Worfair.BuildingBlocks.Domain          # Entity, AggregateRoot, ValueObject,
-│   │                                          # Result (D-10), TenantId, ITenantEntity…
-│   ├── Worfair.BuildingBlocks.Application     # CQRS, behaviors, IEventBus, Security (SEC-03)
-│   ├── Worfair.BuildingBlocks.Infrastructure  # EF tenancy interceptors, Outbox, InProcessBus
-│   └── Worfair.BuildingBlocks.Contracts      # base dos IntegrationEvents
-├── Modules/
-│   ├── Tenants/     # tenants, companies, memberships, settings  (schema: tenancy)
-│   ├── Identity/    # users, roles, permissions, user_roles, refresh_tokens (schema: identity)
-│   └── Recruitment/ # job_requisitions, candidates, interviews   (schema: recruitment)
-└── Api/Worfair.Api # host: middlewares SEC-02, JWT, policies, endpoints, Scalar, health
-tests/
-├── Unit/…Identity… / …Tenants… / …Recruitment…   # regras de negócio (83 testes)
-└── Worfair.Tests.Architecture        # fronteiras de módulo (NetArchTest)
-```
+---
 
-## Pré-requisitos
+## Como rodar (desenvolvimento)
+
+> **Ordem importante**: Siga os passos na sequência. Pular etapas causa erros.
+
+### Passo 1: Instalar prerequisites
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Docker Desktop (para PostgreSQL/RabbitMQ locais) **ou** um PostgreSQL 16 acessível
+- [Docker Desktop](https://www.docker.com/products/docker-desktop)
 
-## Setup rápido (dev)
+### Passo 2: Gerar chaves JWT
 
-```bash
-# 1) Chaves RSA de desenvolvimento (RS256) — NÃO versionadas
-powershell -File dev/jwt/generate.ps1        # gera dev/jwt/private.pem e public.pem
+```powershell
+powershell -ExecutionPolicy Bypass -File dev/jwt/generate.ps1
+```
 
-# 2) Infra local (Postgres + RabbitMQ + roles worfair_app/worfair_migrator)
-cp .env.example .env
+Isso cria `dev/jwt/private.pem` e `dev/jwt/public.pem`.
+
+**Copie os arquivos para:**
+- `dev/jwt/` (pasta raiz)
+- `src/Api/Worfair.Api/dev/jwt/` (ambas as pastas)
+
+### Passo 3: Subir o banco de dados
+
+```powershell
 docker compose up -d postgres rabbitmq
+```
 
-# 3) Migrações (tenancy → identity → recruitment, com RLS/CHECKs/seed idempotente)
-dotnet tool restore
-dotnet dotnet-ef database update `
-  --project src/Modules/Tenants/Worfair.Modules.Tenants.Infrastructure `
-  --startup-project src/Api/Worfair.Api --context TenancyDbContext
-dotnet dotnet-ef database update `
-  --project src/Modules/Identity/Worfair.Modules.Identity.Infrastructure `
-  --startup-project src/Api/Worfair.Api --context IdentityDbContext
-dotnet dotnet-ef database update `
-  --project src/Modules/Recruitment/Worfair.Modules.Recruitment.Infrastructure `
-  --startup-project src/Api/Worfair.Api --context RecruitmentDbContext
+Aguardar containers ficarem "Healthy".
 
-#    (alternativa full-container: docker compose run --rm migrate)
+### Passo 4: Aplicar migrations (criar tabelas)
 
-# 4) API + Scalar
+**Opção A - Automática (desenvolvimento)**:
+```powershell
+$env:DB_AUTO_MIGRATE='true'
+```
+Isso cria todas as tabelas automaticamente ao iniciar a API e aplica o seed do SUPER_ADMIN se as chaves `AdminSeed__Email`/`AdminSeed__Password` estiverem configuradas no `.env`.
+
+**Opção B - Manual**:
+```powershell
+dotnet ef database update --project src/Modules/Tenants/Worfair.Modules.Tenants.Infrastructure --startup-project src/Api/Worfair.Api --context TenancyDbContext
+dotnet ef database update --project src/Modules/Identity/Worfair.Modules.Identity.Infrastructure --startup-project src/Api/Worfair.Api --context IdentityDbContext
+dotnet ef database update --project src/Modules/Recruitment/Worfair.Modules.Recruitment.Infrastructure --startup-project src/Api/Worfair.Api --context RecruitmentDbContext
+```
+
+### Passo 5: Iniciar o backend (API)
+
+```powershell
 dotnet run --project src/Api/Worfair.Api
-# Swagger/OpenAPI : http://localhost:5000/openapi/v1.json
-# Scalar (UI)     : http://localhost:5000/scalar
-# Health          : http://localhost:5000/health  ·  /health/ready
 ```
 
-> O appsettings.Development aponta as chaves para `../../dev/jwt/*.pem`.
-> Em produção as migrações **nunca** são automáticas (DEV-02) — passo controlado
-> do pipeline com `worfair_migrator`; runtime usa `worfair_app` (sujeita ao RLS).
+API disponível em: `http://localhost:5000`
 
-### Variáveis de ambiente suportadas
+- Documentação: `http://localhost:5000/openapi/v1.json`
+- Scalar (UI): `http://localhost:5000/scalar`
+- Health: `http://localhost:5000/health`
 
-| Var | Efeito |
-| --- | ------ |
-| `DB_AUTO_MIGRATE=true` | aplica migrações no startup (**somente dev**) |
-| `DB_MIGRATE_ONLY=true` | aplica migrações e encerra (container one-shot) |
+### Passo 6: Iniciar o frontend
 
-## Testando a API (fluxo ponta a ponta)
-
-Use o Scalar em `/scalar` (ou curl):
-
-1. **`POST /api/identity/register`** — primeiro usuário recebe `SUPER_ADMIN`
-   global automaticamente (bootstrap da plataforma).
-2. **`POST /api/identity/login`** — devolve access token + refresh token.
-   Envie `Authorization: Bearer <token>` nas chamadas seguintes.
-3. **`POST /api/platform/tenants`** *(policy `platform.tenants.manage`, contexto global)*
-   — provisiona tenant + settings + owner opcional; publica
-   `TenantProvisionedIntegrationEvent` via **Outbox**.
-4. **`POST /api/identity/users/{id}/roles`** — concede `OWNER`/`RECRUITER` etc.
-   no tenant corrente (exige membership ativa — R-05).
-5. **`POST /api/identity/switch-tenant`** / **`switch-mode`** — única via de troca
-   de contexto; sempre emite **novo token** após validar membership/permissões no banco.
-6. **`GET /api/identity/me`** — espelho do contexto calculado **no servidor**
-   (roles, permissões efetivas, modos disponíveis).
-7. **Recruitment (ATS)** — fluxo ponta a ponta no tenant corrente:
-   - `POST /api/recruitment/requisitions` → cria `JobRequisition` em `Draft`;
-   - `POST …/{id}/team` → adiciona membro do time (**exigido para publicar**);
-   - `POST …/{id}/publish` → `Draft → Published`; emite
-     `worfair.recruitment.job-requisition-published.v1` via **Outbox**;
-   - `POST …/{id}/pause|resume|close|cancel`, `PATCH …/{id}/salary-range`;
-   - `POST /api/recruitment/candidates` → nasce `Sourced`/`Applied`
-     (e-mail único **por tenant**, case-insensitive);
-   - `POST /api/recruitment/candidates/{id}/advance` → máquina estrita
-     `Sourced → Applied → Screened → Interviewing → Offered → Hired`;
-     avançar p/ `Interviewing` exige entrevista agendada; histórico append-only;
-   - `POST /api/recruitment/interviews` → agenda (duração 15–480 min, futuro);
-     `POST …/{id}/feedback` (1 por entrevistador, nota 1–5) e `…/complete`
-     (**feedback obrigatório**);
-   - `POST /api/recruitment/candidates/{id}/hire` → publica
-     `worfair.recruitment.candidate-hired.v1` via Outbox (→ Proposals/Notifications).
-
-Verificações de segurança incluídas:
-
-- Header **`X-Tenant-Id` ⇒ 400** (middleware SEC-02).
-- Recurso/outro tenant ou inexistente ⇒ **404 indistinguível**.
-- Sem contexto de tenant em operação tenant-scoped ⇒ **403** (deny-by-default;
-  RLS recusa qualquer linha com `app.tenant_id` nulo).
-
-## Testes automatizados
-
-```bash
-dotnet test                     # 83 testes (domínio + arquitetura)
+```powershell
+cdwarfair-web
+npm install           # (primeira vez apenas)
+npm run dev
 ```
 
-Cobrem, entre outros: normalização de e-mail/slug/documento/título, máquinas de
-estado (Tenant/Company/Membership/User/RefreshToken/JobRequisition/Candidate/
-Interview), invariante de escopo de `user_roles` (R-04), múltiplas roles por
-tenant (R-05), detecção de reuso de refresh token, invariantes do ATS (publicar
-só com time de contratação, faixa salarial imutável pós-encerramento, avanço
-sequencial do candidato, entrevista obrigatória p/ `Interviewing`, feedback
-obrigatório p/ concluir) e as regras de dependência entre projetos (NetArchTest).
+Frontend em: `http://localhost:5173`
 
-## Regras de negócio já implementadas (rastreabilidade)
+---
 
-| Fonte | Regra | Onde |
-| ----- | ----- | ---- |
-| R-01..R-09 | `tenant_id`, RLS `FORCE`, globais fechadas, escopo misto | migrations + interceptors |
-| R-04 | `SUPER_ADMIN` global (`tenant_id` NULL) | `UserRole.Grant` + CHECK no banco |
-| R-05 | multi-role por tenant exige membership ativa | handler AssignTenantRole + FK composta |
-| R-06 | handlers nunca recebem TenantId; cross-tenant = 404/null | commands + query filters |
-| R-11 | seed idempotente (`ON CONFLICT DO NOTHING`) | migration identity |
-| SEC-01 | JWT = contexto; autorização relê o banco a cada request | `AuthorizationDataProvider` + handlers |
-| SEC-02 | `X-Tenant-Id` ⇒ 400; switch é a única troca | middlewares + `SwitchTenantCommand` |
-| SEC-03 | modos derivados de permissões efetivas | `AccessModeMapper` + `ModeResolver` |
-| D-07/D-10 | Outbox transacional; Result pattern | `OutboxEventBus`, `UnitOfWork`, `Result` |
-| ATS: publish exige time de contratação | `JobRequisition.Publish` + CHECKs | domínio + migration recruitment |
-| ATS: faixa salarial imutável pós-encerramento | `JobRequisition.ChangeSalaryRange` | domínio + `chk_job_requisitions_salary_range` |
-| ATS: recrutador único no time / travado fora de Draft | `JobRequisition.AddTeamMember` | domínio + PK `(job_requisition_id, recruiter_user_id)` |
-| Candidato: e-mail único por tenant (case-insensitive) | `ContactEmail` + filtro por tenant | `uq_candidates_tenant_email` |
-| Candidato: máquina estrita + Interviewing exige entrevista | `Candidate.Advance` + handler | domínio + `chk_candidates_status` |
-| Entrevista: feedback obrigatório, 1/entrevistador, nota 1–5 | `Interview.Complete/AddFeedback` | domínio + CHECKs/UNIQUE no banco |
+## Passos pós-initial (importante ler antes)
 
-## Decisões técnicas documentadas (desvios mínimos)
+⚠️ **SUPER_ADMIN NÃO é criado pelo `/register`**.
 
-0. **Mapeamento de `SalaryRange` (VO aninhado):** `Money` vive dentro de
-   `SalaryRange`; para materializar VOs aninhados o EF exige construtores sem
-   parâmetros + setters privados (API pública permanece imutável). Persistido em
-   `salary_min/salary_currency` e `salary_max/salary_max_currency`
-   (docs/architecture/05 §6).
+- O endpoint `POST /api/identity/register` cria um usuário comum sem papel.
+- O SUPER_ADMIN inicial é criado **apenas no startup** se as chaves `AdminSeed__Email` e `AdminSeed__Password` estiverem definidas no arquivo `.env` (exemplo no `.env.example`).
+- O banco de dados impõe unicidade: só pode existir **um único** SUPER_ADMIN global (índice parcial `uq_single_super_admin` em `user_roles` com `TenantId IS NULL`).
+- Após o seed, faça login com o usuário cadastrado no passo 1 e use `POST /api/identity/switch-tenant` para derivar o modo automaticamente.
 
-1. **PK de `user_roles`:** PostgreSQL não admite NULL em PK composta; adotada PK
-   técnica `id uuid` + UNIQUE lógica `(user_id, tenant_id, role_id)` e índice
-   parcial `(user_id, role_id) WHERE tenant_id IS NULL`. Todas as garantias
-   R-04/R-05 permanecem (CHECK + FKs + domínio).
-2. **`refresh_tokens.tenant_id` NULLável:** sessão global do SUPER_ADMIN precisa
-   de refresh; política RLS de escopo misto (mesma de `user_roles`).
-3. **Leitura elevada (authz/switch):** `TenancyReadContract` define
-   `app.tenant_id` **no escopo da transação** (`set_config(..., true)`), reverte
-   ao final e só lê — espelha a consequência prática de R-04 ("define
-   app.tenant_id manualmente na sessão, auditável"), sem bypass de RLS.
-4. **Pool de conexões:** o interceptor redefine `app.tenant_id` para NULL a cada
-   `ConnectionOpened` sem tenant — evita vazamento de contexto entre requests.
+1. **Primeiro login**: Rode a API uma vez com `DB_AUTO_MIGRATE=true` e `AdminSeed__*` preenchidos no `.env`. O SUPER_ADMIN será criado automaticamente.
+2. **Login**: `POST /api/identity/login` → recebe token (modo `global`, roles `SUPER_ADMIN`).
+3. **Criar tenant**: Usar `POST /api/tenants/bootstrap` (SUPER_ADMIN) ou `POST /api/platform/tenants` (SUPER_ADMIN).
+4. **Adicionar usuários ao tenant**: `POST /api/identity/users/{id}/roles` com role (Owner, Provider, Client, Recruiter, HiringManager).
+5. **Publicar**: Acesse `/contratar` e preencher formulário (requer permissão `financial.invoice.issue` e modo `Contracting`).
+6. **Usar marketplace**: Vagas em `/vagas`, Trabalhos em `/trabalhos`, Financeiro em `/financeiro`, Mensagens em `/mensagens`.
 
-## Roadmap (próximas partes, seguindo os docs)
+---
 
-| Parte | Escopo | Status |
-| ----- | ------ | ------ |
-| 1 | Fundação — BuildingBlocks + Identity + Tenants | ✅ concluída |
-| 2 | **Recruitment** — JobRequisition, Candidate, Interview; publica `JobRequisitionPublished` e `CandidateHired` (consumo de `JobPostingPublished` será ligado na Parte 3) | ✅ concluída |
-| 3 | **Jobs** — JobPosting/ServiceProject/Skill/Category; publica posting events → ativa o consumer do Recruitment | próximo |
-| 4 | Proposals/Hiring — Proposal/Offer/Contract; consome `CandidateHired` | — |
-| 5 | Financial — máquina de estados FIN-02, Asaas Split, webhook inbox idempotente, RabbitMQ/MassTransit | — |
-| 6 | Notifications — templates/preferências; consome eventos dos demais módulos | — |
-| 7 | Observabilidade (OTel), audit_logs + hash chain (SEC-04), CI/CD GitHub Actions | — |
+## Variáveis de ambiente importantes
 
-### Limitações conhecidas da Parte 2
+| Variável | Descrição | Obrigatório? |
+|----------|-----------|--------------|
+| `DB_AUTO_MIGRATE=true` | Aplica migrations no startup (somente dev) | Não (somente dev) |
+| `AdminSeed__Email` | Email do SUPER_ADMIN inicial (cria 1 único no startup) | Não, mas recomendado para testar o super admin |
+| `AdminSeed__Password` | Senha ≥12 chars do SUPER_ADMIN (cria 1 único no startup) | Não, mas recomendado para testar o super admin |
+| `ASAAS_API_KEY` | Chave Asaac Sandbox (opcional, pagamentos ainda não totalmente integrados) | Não |
+| `ASAAS_WEBHOOK_TOKEN` | Token webhook Asaac (cadastre no painel Asaac → cobrança → webhook) | Não |
+| `ASAAS_SPLIT_WALLET_ID` | Wallet da plataforma para split automático da taxa 15% (opcional) | Não |
 
-- **Horário comercial da entrevista:** a invariante "dentro do horário
-  comercial do tenant" depende de parsing do `hiring_workflow` (jsonb em
-  `tenant_settings`) — ficará completa junto com o read contract de settings.
-- **Entrevistador ∈ HiringTeam:** validado no handler (consulta cross-aggregate);
-  o domínio garante unicidade de feedback e conclusão com feedback.
+---
+
+## Comportamento de SUPER_ADMIN e usuários
+
+- **SUPER_ADMIN**: Contexto global (`tenant_id` NULL), role `SUPER_ADMIN` no banco. Pode ver todas as tenants/faturas/disputas via leitura elevada. Não pode ser criado pelo `/register` — só pelo seed inicial.
+- **Usuário comum**: Contexto de tenant (via claim `tenant_id` no JWT). Só vê e age no que pertence ao seu tenant. Não pode banir — as policies e endpoints exigem `tenants.members.manage` + modo `Contracting`, que usuários comuns não têm. Só pode denunciar (`DisputeOpen`), conversar (`MessageRead/MessageSend`) e marcar com estrela.
+- **Taxa 15%**: Sobre todo trabalho/cobrança. Fatura gera `PlatformFeeAmount = amount × 0.15` e `TotalAmount = amount × 1.15`. Contratante paga o valor + 15%; prestador recebe o valor líquido (o sistema controla a taxa localmente; split via Asaas wallet é opcional).
+
+- **Perfil de usuário**: O endpoint `GET /api/identity/me` agora retorna os campos adicionais:
+  - `AvatarUrl`: URL da imagem de perfil do usuário
+  - `PortfolioUrl`: URL do portfólio ou links de projetos do usuário
+  - Ambos os campos são opcionais e podem ser atualizados através de futuros endpoints de edição de perfil.
+
+---
+
+## Estrutura de arquivos críticos
+
+- `dev/jwt/generate.ps1` - Gera chaves de segurança
+- `dev/jwt/private.pem` / `public.pem` - Chaves JWT (necessárias para login)
+- `docker-compose.yml` - Subir PostgreSQL + RabbitMQ
+- `src/Api/Worfair.Api/Program.cs` - Configuração da API (middlewares, JWT, endpoints)
+- `src/BuildingBlocks/Worfair.BuildingBlocks.Infrastructure/Persistence/Tenant/TenantConnectionInterceptor.cs` - Interceptor RLS (define `app.tenant_id` por conexão)
+- `src/Modules/Identity/Worfair.Modules.Identity.Application/Abstractions/ModeResolver.cs` - Lógica do modo automático
+
+---
+
+## Solução de problemas básicos
+
+- **Erro "Chave PEM não encontrada"**: Regenerar com o Passo 2 e copiar para ambas as pastas `dev/jwt/`
+- **Erro "Não conecta no PostgreSQL"**: Verificar `docker compose up` e containers saudáveis
+- **Erro "Modo indisponível (500)"**: Segundo usuário precisa de role no tenant via `POST /api/identity/users/{id}/roles`
+- **Build com erros**: Rodar `dotnet build Worfair.slnx` para ver linhas exatas
+- **SUPER_ADMIN não aparece**: Verifique se `AdminSeed__Email` e `AdminSeed__Password` estão no `.env` e reinicie a API com `$env:DB_AUTO_MIGRATE='true'`
+
+---

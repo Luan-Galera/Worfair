@@ -23,4 +23,10 @@ public static class AuthErrors
     public static readonly Error RoleAlreadyGranted = new("Auth.RoleAlreadyGranted", "O usuário já possui esta role neste escopo.");
     public static readonly Error GlobalRoleRequiresPlatformScope = new("Auth.GlobalRoleRequiresPlatformScope", "Roles globais só podem ser concedidas em contexto global.");
     public static readonly Error TenantRoleRequiresMembership = new("Auth.TenantRoleRequiresMembership", "Role de tenant exige membership ativa (R-05).");
+    public static readonly Error UserTypeInvalid = new("Auth.UserTypeInvalid", "Tipo de conta inválido (individual ou company).");
+    public static readonly Error DocumentInvalid = new("Auth.DocumentInvalid", "Documento inválido: informe CPF (11) ou CNPJ (14) dígitos.");
+    public static readonly Error PhoneTooLong = new("Auth.PhoneTooLong", "O telefone aceita até 30 caracteres.");
+    public static readonly Error CannotLockSelf = new("Auth.CannotLockSelf", "Não é possível bloquear o próprio usuário.");
+    public static readonly Error CannotUnlockSelf = new("Auth.CannotUnlockSelf", "Não é possível desbloquear o próprio usuário.");
+public static readonly Error UserNotFound = new("Auth.UserNotFound", "Usuário não encontrado.");
 }
