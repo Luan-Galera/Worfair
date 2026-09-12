@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Worfair.Modules.Jobs.Application\Worfair.Modules.Jobs.Application.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Jobs.Contracts\Worfair.Modules.Jobs.Contracts.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Jobs.Domain\Worfair.Modules.Jobs.Domain.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Jobs.Infrastructure\Worfair.Modules.Jobs.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

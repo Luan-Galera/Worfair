@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Worfair.BuildingBlocks.Application\Worfair.BuildingBlocks.Application.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Worfair.BuildingBlocks.Contracts\Worfair.BuildingBlocks.Contracts.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Jobs.Contracts\Worfair.Modules.Jobs.Contracts.csproj" />
+    <ProjectReference Include="..\Worfair.Modules.Jobs.Domain\Worfair.Modules.Jobs.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
