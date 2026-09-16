@@ -9,7 +9,7 @@ Funcionalidades completas de cadastro, publicação, propostas, faturas e pagame
 
 ### Principais fluxos
 
-- **Registro e login**: Primeiro usuário vira SUPER_ADMIN global. Login via JWT RS256 (token 15min + refresh 7d).
+- **Registro e login**: `POST /api/identity/register` cria usuário comum (nunca admin). O SUPER_ADMIN inicial vem do seed (`AdminSeed__Email`/`AdminSeed__Password`). Login via JWT RS256 (token 15min + refresh 7d).
 - **Contexto de tenant**: Cada operação está vinculada a um tenant (espaço/workspace). Isolamento via RLS (Row Level Security) no PostgreSQL.
 - **Modo automático**: Constratante ou prestador é derivado automaticamente das permissões do usuário no tenant corrente. Não há toggle manual.
 - **Taxa 15%**: Sobre todo trabalho/cobrança. Contratante paga valor + 15%; prestador recebe valor integral.
@@ -62,6 +62,8 @@ Isso cria todas as tabelas automaticamente ao iniciar a API e aplica o seed do S
 dotnet ef database update --project src/Modules/Tenants/Worfair.Modules.Tenants.Infrastructure --startup-project src/Api/Worfair.Api --context TenancyDbContext
 dotnet ef database update --project src/Modules/Identity/Worfair.Modules.Identity.Infrastructure --startup-project src/Api/Worfair.Api --context IdentityDbContext
 dotnet ef database update --project src/Modules/Recruitment/Worfair.Modules.Recruitment.Infrastructure --startup-project src/Api/Worfair.Api --context RecruitmentDbContext
+dotnet ef database update --project src/Modules/Jobs/Worfair.Modules.Jobs.Infrastructure --startup-project src/Api/Worfair.Api --context JobsDbContext
+dotnet ef database update --project src/Api/Worfair.Api --startup-project src/Api/Worfair.Api --context FinancialDbContext
 ```
 
 ### Passo 5: Iniciar o backend (API)
@@ -93,11 +95,11 @@ Frontend em: `http://localhost:5173`
 ⚠️ **SUPER_ADMIN NÃO é criado pelo `/register`**.
 
 - O endpoint `POST /api/identity/register` cria um usuário comum sem papel.
-- O SUPER_ADMIN inicial é criado **apenas no startup** se as chaves `AdminSeed__Email` e `AdminSeed__Password` estiverem definidas no arquivo `.env` (exemplo no `.env.example`).
+- O SUPER_ADMIN inicial é criado **apenas no startup com `DB_AUTO_MIGRATE=true`** se as chaves `AdminSeed__Email` e `AdminSeed__Password` estiverem no ambiente. Via `dotnet run`, exporte no shell (`$env:AdminSeed__Email=...`, `$env:AdminSeed__Password=...`), pois o `.env` só é lido pelo `docker compose` (exemplo no `.env.example`).
 - O banco de dados impõe unicidade: só pode existir **um único** SUPER_ADMIN global (índice parcial `uq_single_super_admin` em `user_roles` com `TenantId IS NULL`).
 - Após o seed, faça login com o usuário cadastrado no passo 1 e use `POST /api/identity/switch-tenant` para derivar o modo automaticamente.
 
-1. **Primeiro login**: Rode a API uma vez com `DB_AUTO_MIGRATE=true` e `AdminSeed__*` preenchidos no `.env`. O SUPER_ADMIN será criado automaticamente.
+1. **Primeiro login**: Rode a API uma vez com `DB_AUTO_MIGRATE=true` e `AdminSeed__*` definidos (via `$env:` no PowerShell com `dotnet run`, ou `.env` com `docker compose`). O SUPER_ADMIN será criado automaticamente (log `SUPER_ADMIN inicial criado`).
 2. **Login**: `POST /api/identity/login` → recebe token (modo `global`, roles `SUPER_ADMIN`).
 3. **Criar tenant**: Usar `POST /api/tenants/bootstrap` (SUPER_ADMIN) ou `POST /api/platform/tenants` (SUPER_ADMIN).
 4. **Adicionar usuários ao tenant**: `POST /api/identity/users/{id}/roles` com role (Owner, Provider, Client, Recruiter, HiringManager).
