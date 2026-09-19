@@ -8,6 +8,7 @@ using Worfair.Modules.Tenants.Application.CreateCompany;
 using Worfair.Modules.Tenants.Application.Members;
 using Worfair.Modules.Tenants.Application.ProvisionTenant;
 using Worfair.Modules.Tenants.Application.Queries;
+using Worfair.Modules.Identity.Application.ManageRoles;
 using Worfair.Modules.Tenants.Application.SetCompanyStatus;
 using Worfair.Modules.Tenants.Application.TransferCompanyOwner;
 
@@ -100,8 +101,51 @@ public static class TenantsEndpoints
             .WithSummary("Convida usuário ao espaço pelo e-mail.");
 
         members.MapGet(string.Empty,
-                async (ISender sender, CancellationToken ct) =>
-                    (await sender.Send(new ListTenantMembersQuery(), ct).ConfigureAwait(false)).ToHttpResult())
+                async (ISender sender,
+                    Worfair.Modules.Identity.Infrastructure.Persistence.IdentityDbContext identity,
+                    Worfair.BuildingBlocks.Application.Security.ICurrentUser currentUser,
+                    CancellationToken ct) =>
+                {
+                    var result = await sender.Send(new ListTenantMembersQuery(), ct).ConfigureAwait(false);
+                    if (result.IsFailure)
+                        return result.ToHttpResult();
+
+                    // Enriquece com nome/e-mail (identity.users é global, legível no
+                    // contexto do espaço) para a UI não exibir o Guid cru.
+                    var ids = result.Value!.Select(m => m.UserId).ToList();
+                    var users = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                        .ToListAsync(identity.Users.Where(u => ids.Contains(u.Id)), ct)
+                        .ConfigureAwait(false);
+                    var byId = users.ToDictionary(u => u.Id, u => u);
+
+                    // Cargos atuais no espaço (user_roles do tenant + catálogo global
+                    // de roles, mesmo padrão de leitura do EffectivePermissionReader).
+                    var rolesByUser = new Dictionary<Guid, IReadOnlyList<string>>();
+                    if (currentUser.TenantId is { } tid)
+                    {
+                        var pairs = await identity.UserRoles
+                            .Where(ur => ur.TenantId == tid)
+                            .Join(identity.Roles,
+                                ur => ur.RoleIdValue, r => r.Id,
+                                (ur, r) => new { ur.UserId, r.Code })
+                            .ToListAsync(ct).ConfigureAwait(false);
+                        foreach (var g in pairs.GroupBy(p => p.UserId))
+                            rolesByUser[g.Key] = g.Select(p => p.Code).Distinct().ToList();
+                    }
+
+                    var enriched = result.Value!.Select(m =>
+                    {
+                        byId.TryGetValue(m.UserId, out var u);
+                        rolesByUser.TryGetValue(m.UserId, out var codes);
+                        return m with
+                        {
+                            Email = u?.Email.Value,
+                            FullName = u?.FullName,
+                            RoleCodes = codes,
+                        };
+                    }).ToList();
+                    return Results.Ok(enriched);
+                })
             .RequireAuthorization(SecurityPolicies.MembersManage)
             .WithName("ListTenantMembers");
 
@@ -111,6 +155,15 @@ public static class TenantsEndpoints
                         .ConfigureAwait(false)).ToAcceptedResult())
             .RequireAuthorization(SecurityPolicies.MembersManage)
             .WithName("SetTenantMemberStatus");
+
+        // Transferência da propriedade: só o dono atual (conferido no handler).
+        members.MapPost("/ownership/transfer",
+                async (TransferOwnershipRequest request, ISender sender, CancellationToken ct) =>
+                    (await sender.Send(new TransferSpaceOwnershipCommand(request.NewOwnerUserId), ct)
+                        .ConfigureAwait(false)).ToAcceptedResult())
+            .RequireAuthorization(SecurityPolicies.MembersManage)
+            .WithName("TransferSpaceOwnership")
+            .WithSummary("Concede OWNER ao novo dono e revoga do atual na mesma operação.");
 
         // ── Onboarding self-service (conta nova sem contexto) ─────────────────
         // Cria o espaço pessoal do usuário + membership + roles OWNER/PROVIDER.
@@ -266,3 +319,5 @@ public sealed record SetStatusRequest(bool Active);
 public sealed record TransferOwnerRequest(Guid NewOwnerUserId);
 
 public sealed record AddMemberByEmailRequest(string Email);
+
+public sealed record TransferOwnershipRequest(Guid NewOwnerUserId);

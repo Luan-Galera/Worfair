@@ -26,7 +26,7 @@ export function ProtectedRoute({ permission = null, requireContext = true }) {
   }
 
   if (permission && !can(permission)) {
-    return <PermissionDenied reason="permissão insuficiente para este contexto" />;
+    return <PermissionDenied />;
   }
 
   return <Outlet />;

@@ -5,7 +5,7 @@ import { PermissionDenied } from '../components/feedback/PermissionDenied';
 export function RequirePermission({ permission, children }) {
   const { can } = useAccess();
   if (permission && !can(permission)) {
-    return <PermissionDenied reason="permissão insuficiente" />;
+    return <PermissionDenied />;
   }
   return children;
 }

@@ -11,6 +11,12 @@ public sealed record AssignTenantRoleCommand(Guid TargetUserId, string RoleCode)
 
 public sealed record RemoveTenantRoleCommand(Guid TargetUserId, string RoleCode) : ICommand<Result>;
 
+/// <summary>
+/// Transferência da propriedade do espaço: concede OWNER ao novo dono e
+/// revoga do atual na mesma operação (o espaço nunca fica sem dono).
+/// </summary>
+public sealed record TransferSpaceOwnershipCommand(Guid NewOwnerUserId) : ICommand<Result>;
+
 public sealed class AssignTenantRoleCommandValidator : AbstractValidator<AssignTenantRoleCommand>
 {
     public AssignTenantRoleCommandValidator()
@@ -26,5 +32,13 @@ public sealed class RemoveTenantRoleCommandValidator : AbstractValidator<RemoveT
     {
         RuleFor(c => c.TargetUserId).NotEmpty().WithErrorCode("Auth.InvalidUser");
         RuleFor(c => c.RoleCode).NotEmpty().MaximumLength(50).WithErrorCode("Auth.RoleNotFound");
+    }
+}
+
+public sealed class TransferSpaceOwnershipCommandValidator : AbstractValidator<TransferSpaceOwnershipCommand>
+{
+    public TransferSpaceOwnershipCommandValidator()
+    {
+        RuleFor(c => c.NewOwnerUserId).NotEmpty().WithErrorCode("Auth.InvalidUser");
     }
 }

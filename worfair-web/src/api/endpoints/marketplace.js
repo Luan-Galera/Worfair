@@ -30,8 +30,7 @@ export const financialApi = {
   settleInvoice: (id) => http.post(`/financial/invoices/${id}/settle`),
   chargeInvoice: (id, payload) => http.post(`/financial/invoices/${id}/charge`, payload),
   invoicePayment: (id) => http.get(`/financial/invoices/${id}/payment`),
-  adminInvoices: () => http.get('/financial/admin/invoices'),
-  adminCreateInvoice: (payload) => http.post('/financial/admin/invoices', payload),
+  adminInvoices: () => http.get('/financial/admin/invoices'),  adminCreateInvoice: (payload) => http.post('/financial/admin/invoices', payload),
   adminSettle: (id) => http.post(`/financial/admin/invoices/${id}/settle`),
   disputes: () => http.get('/financial/disputes'),
   getDispute: (id) => http.get(`/financial/disputes/${id}`),
@@ -58,6 +57,8 @@ export const tenantsApi = {
   members: () => http.get('/tenants/members'),
   addMember: (targetUserId) => http.post('/tenants/members', { targetUserId }),
   addMemberByEmail: (email) => http.post('/tenants/members/by-email', { email }),
+  transferOwnership: (newOwnerUserId) =>
+    http.post('/tenants/members/ownership/transfer', { newOwnerUserId }),
   transferCompanyOwner: (companyId, newOwnerUserId) =>
     http.patch(`/tenants/companies/${companyId}/owner`, { newOwnerUserId }),
   assignRole: (targetUserId, roleCode) =>

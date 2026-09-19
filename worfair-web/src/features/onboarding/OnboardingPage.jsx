@@ -26,11 +26,11 @@ export default function OnboardingPage() {
       setCreated(data);
       await switchTenant(data.tenantId);
       await refreshMe();
-      navigate('/painel', { replace: true });
+      navigate('/contratar', { replace: true });
     } catch (err) {
       if (err?.response?.status === 409) {
+        // Espaço já existe: atualiza a lista para a pessoa escolher onde entrar.
         await refreshMe();
-        navigate('/painel', { replace: true });
         return;
       }
       setError(apiMessage(err, 'Não foi possível criar seu espaço.'));
@@ -45,7 +45,7 @@ export default function OnboardingPage() {
     try {
       await switchTenant(tenantId);
       await refreshMe();
-      navigate('/painel', { replace: true });
+      navigate('/contratar', { replace: true });
     } catch (err) {
       setError(apiMessage(err, 'Não foi possível entrar no espaço.'));
     } finally {
@@ -57,9 +57,9 @@ export default function OnboardingPage() {
     <div>
       <h2>Bem-vindo! Crie seu espaço</h2>
       <p className="text-muted">
-        Contas novas começam sem contexto — por isso o login pode retornar{' '}
-        <code>ModeUnavailable</code>. Crie seu espaço pessoal para atuar como contratante e
-        prestador, ou entre em um espaço existente.
+        Contas novas começam fora de qualquer espaço — por isso as áreas de trabalho pedem
+        para criar um. Crie seu espaço pessoal para atuar como contratante e prestador, ou
+        entre em um espaço existente.
       </p>
 
       {memberships.length > 0 && (

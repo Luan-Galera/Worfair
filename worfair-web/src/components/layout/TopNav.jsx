@@ -4,8 +4,10 @@ import { useAccess, MODES } from '../../access/useAccess';
 import { TenantSwitcher } from './TenantSwitcher';
 
 function ModeBadge() {
-  const { activeMode, availableModes } = useAccess();
-  if (!activeMode) return null;
+  // Indicador de contexto só para o admin da plataforma; usuários comuns
+  // não veem nada de "modo" (o contexto segue o espaço automaticamente).
+  const { activeMode, availableModes, isGlobalAdmin } = useAccess();
+  if (!activeMode || !isGlobalAdmin) return null;
   const meta = MODES[activeMode] ?? { label: activeMode, icon: 'bi-circle', color: 'secondary' };
   return (
     <span className={`badge bg-${meta.color}`} title={`Modo automático do contexto: ${availableModes.join(', ')}`}>

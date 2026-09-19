@@ -369,6 +369,8 @@ dev/jwt/*.pem
 .env.*
 !.env.example
 
+*.xml
+
 AGENTS.md
 
 api-run.err

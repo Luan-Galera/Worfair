@@ -28,5 +28,8 @@ public static class AuthErrors
     public static readonly Error PhoneTooLong = new("Auth.PhoneTooLong", "O telefone aceita até 30 caracteres.");
     public static readonly Error CannotLockSelf = new("Auth.CannotLockSelf", "Não é possível bloquear o próprio usuário.");
     public static readonly Error CannotUnlockSelf = new("Auth.CannotUnlockSelf", "Não é possível desbloquear o próprio usuário.");
+    public static readonly Error OnlyOwnerCanTransfer = new("Auth.OnlyOwnerCanTransfer", "Só o dono do espaço pode transferir a propriedade.");
+    public static readonly Error AlreadySpaceOwner = new("Auth.AlreadySpaceOwner", "Este membro já é dono do espaço.");
+    public static readonly Error CannotTransferToSelf = new("Auth.CannotTransferToSelf", "Você já é o dono do espaço.");
 public static readonly Error UserNotFound = new("Auth.UserNotFound", "Usuário não encontrado.");
 }

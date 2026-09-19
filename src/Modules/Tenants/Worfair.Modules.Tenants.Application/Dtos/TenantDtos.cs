@@ -23,4 +23,7 @@ public sealed record CompanyDto(
 public sealed record MemberDto(
     Guid UserId,
     int Status,
-    DateTime JoinedAtUtc);
+    DateTime JoinedAtUtc,
+    string? Email = null,
+    string? FullName = null,
+    IReadOnlyList<string>? RoleCodes = null);
