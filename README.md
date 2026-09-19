@@ -81,7 +81,7 @@ API disponível em: `http://localhost:5000`
 ### Passo 6: Iniciar o frontend
 
 ```powershell
-cdwarfair-web
+cd worfair-web
 npm install           # (primeira vez apenas)
 npm run dev
 ```
@@ -105,6 +105,12 @@ Frontend em: `http://localhost:5173`
 4. **Adicionar usuários ao tenant**: `POST /api/identity/users/{id}/roles` com role (Owner, Provider, Client, Recruiter, HiringManager).
 5. **Publicar**: Acesse `/contratar` e preencher formulário (requer permissão `financial.invoice.issue` e modo `Contracting`).
 6. **Usar marketplace**: Vagas em `/vagas`, Trabalhos em `/trabalhos`, Financeiro em `/financeiro`, Mensagens em `/mensagens`.
+
+---
+
+## Demonstração
+
+Roteiro de apresentação do zero (15–20 min) em `docs/demo/00-roteiro-demonstracao.md`.
 
 ---
 

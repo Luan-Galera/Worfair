@@ -1,1 +1,0 @@
-import{j as n,L as t}from"./index-Brf2NGnj.js";function e(){return n.jsxs("div",{className:"text-center py-5",children:[n.jsx("h2",{children:"Página não encontrada"}),n.jsx(t,{className:"btn btn-primary mt-2",to:"/",children:"Voltar ao início"})]})}export{e as NotFoundPage,e as default};

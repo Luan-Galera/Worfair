@@ -363,6 +363,10 @@ MigrationBackup/
 FodyWeavers.xsd
 # Chaves JWT locais (geradas por dev/jwt/generate.ps1)
 dev/jwt/*.pem
+src/Api/Worfair.Api/dev/jwt/*.pem
+
+# Build do frontend (gerado por `npm run build`)
+worfair-web/dist/
 
 # Segredos locais (.env.example é o único template versionado)
 .env
